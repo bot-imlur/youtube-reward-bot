@@ -1,28 +1,20 @@
-/**
- * Claim Reward Service
- *
- * Purpose:
- * - Validates a code against the system
- * - Ensures it belongs to the expected game
- * - Consumes (marks used) ONLY after all checks pass
- *
- * Design:
- * - Validation + consumption combined (but safely ordered)
- * - No mutation happens before all validations succeed
- */
-
 const path = require('path');
 const { readJsonFile, writeJsonFile } = require('../utils/fileUtils');
-
-const CODES_PATH = path.join(process.cwd(), 'data/codes.json');
+const { withLock } = require('../utils/dataLock');
+const { CODES_FILE_PATH } = require('../config/constants');
 const { isExpired } = require('../utils/expiryUtils');
 const { CLAIM_RESULT } = require('../config/claimResult');
 
+const CODES_PATH = path.join(process.cwd(), CODES_FILE_PATH);
+
 /**
- * Validates and consumes a code for a specific game
+ * Validates a code without consuming it
+ *
+ * Thread-Safety:
+ * - File read is protected by lock to ensure consistent view of codes
  *
  * @param {string} code - Unique claim code
- * @param {string} expectedGame - Game context from processor
+ * @param {string} expectedGame - Game context
  *
  * @returns {object}
  * {
@@ -32,69 +24,88 @@ const { CLAIM_RESULT } = require('../config/claimResult');
  *   game?: string
  * }
  */
-function validateAndConsumeCode(code, expectedGame) {
-  const codes = readJsonFile(CODES_PATH);
+async function validateCode(code, expectedGame) {
+  return withLock(CODES_PATH, async () => {
+    const codes = readJsonFile(CODES_PATH);
+    const entry = codes[code];
 
-  const entry = codes[code];
+    /**
+     * Code does not exist
+     */
+    if (!entry) {
+      return {
+        success: false,
+        reason: CLAIM_RESULT.INVALID_CODE
+      };
+    }
 
-  /**
-   * Code does not exist
-   */
-  if (!entry) {
+    /**
+     * Code already used
+     */
+    if (entry.used) {
+      return {
+        success: false,
+        reason: CLAIM_RESULT.ALREADY_USED
+      };
+    }
+
+    /**
+     * Code expired
+     */
+    if (isExpired(entry.createdAt)) {
+      return {
+        success: false,
+        reason: CLAIM_RESULT.EXPIRED
+      };
+    }
+
+    /**
+     * Code belongs to a different game
+     * than the one being processed
+     */
+    if (entry.game !== expectedGame) {
+      return {
+        success: false,
+        reason: CLAIM_RESULT.GAME_MISMATCH,
+        actualGame: entry.game
+      };
+    }
+
+    /**
+     * All validations passed
+     */
     return {
-      success: false,
-      reason: CLAIM_RESULT.INVALID_CODE
+      success: true,
+      userId: entry.userId,
+      game: entry.game
     };
-  }
+  });
+}
 
-  /**
-   * Code already used
-   */
-  if (entry.used) {
-    return {
-      success: false,
-      reason: CLAIM_RESULT.ALREADY_USED
-    };
-  }
+/**
+ * Consumes a code (marks as used)
+ * Should only be called after validation succeeds
+ *
+ * @param {string} code - Unique claim code
+ * @returns {object} { success: boolean }
+ */
+async function consumeCode(code) {
+  return withLock(CODES_PATH, async () => {
+    const codes = readJsonFile(CODES_PATH);
+    const entry = codes[code];
 
-  /**
-   * Code expired
-   */
-  if (isExpired(entry.createdAt)) {
-    return {
-      success: false,
-      reason: CLAIM_RESULT.EXPIRED
-    };
-  }
+    if (!entry) {
+      return { success: false };
+    }
 
-  /**
-   * Code belongs to a different game
-   * than the one being processed
-   */
-  if (entry.game !== expectedGame) {
-    return {
-      success: false,
-      reason: CLAIM_RESULT.GAME_MISMATCH,
-      actualGame: entry.game
-    };
-  }
+    entry.used = true;
+    writeJsonFile(CODES_PATH, codes);
 
-  /**
-   * All validations passed → now consume the code
-   */
-  entry.used = true;
-  writeJsonFile(CODES_PATH, codes);
-
-  /**
-   * Successful claim
-   */
-  return {
-    success: true,
-    userId: entry.userId,
-    game: entry.game
-  };
+    return { success: true };
+  });
 }
 
 module.exports = {
-  validateAndConsumeCode
+  validateCode,
+  consumeCode
 };

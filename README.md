@@ -1,176 +1,325 @@
-# YouTube Comment Reward Bot (Full Documentation)
+# YouTube Reward Bot
+
+A Discord bot that verifies YouTube comments and delivers game rewards through DM.
+
+## What This System Does
+
+- Generates one-time claim codes through Discord (`/claim`).
+- Verifies user comments on game-specific YouTube videos.
+- Validates and consumes codes safely (single-use, expiry-aware, game-aware).
+- Delivers rewards through Discord DM (`/yt`).
+- Persists state in JSON files with file-level locking for concurrency safety.
+
+## High-Level Architecture
+
+### Runtime Entry Points
+
+- `index.js` - Discord bot runtime and command handling.
+- `deploy-commands.js` - Slash command registration (`/claim`, `/yt`).
+
+### Core Layers
+
+- `config/` - constants, claim result enums, status enums, event names.
+- `services/` - business logic and external integrations.
+- `utils/` - shared helpers (parsing, validation, locking, storage access, logging).
+- `data/` - persistent JSON state (`codes.json`, `youtube/*.json`).
+- `logs/` - JSON line logs.
+- `scripts/` and root `test-*.js` files - operational/manual validation scripts.
+
+## Repository Structure
+
+```text
+.
+|-- config/
+|   |-- claimResult.js
+|   |-- constants.js
+|   |-- events.js
+|   `-- status.js
+|-- services/
+|   |-- claimRewardService.js
+|   |-- codeService.js
+|   |-- discordService.js
+|   |-- youtubeClaimProcessor.js
+|   |-- youtubeCommentService.js
+|   `-- youtubeOnDemandRewardService.js
+|-- utils/
+|   |-- codeReader.js
+|   |-- commentParser.js
+|   |-- commentStore.js
+|   |-- dataLock.js
+|   |-- expiryUtils.js
+|   |-- fileUtils.js
+|   |-- logger.js
+|   |-- validationUtils.js
+|   `-- youtubeLookup.js
+|-- data/
+|   |-- codes.json
+|   `-- youtube/
+|-- logs/
+|   `-- app.log
+|-- deploy-commands.js
+|-- index.js
+`-- README.md
+```
+
+## End-to-End Data Flow
+
+### Flow A: `/claim <game>`
+
+1. Discord interaction arrives in `index.js`.
+2. Global channel validation (`isGlobalChannelAllowed`) runs.
+3. Game normalization/validation (`normalizeGame`, `isSupportedGame`) runs.
+4. `codeService.createCode(userId, username, game)`:
+   - Returns existing valid code, or
+   - Creates a new unique code, or
+   - Returns `ALREADY_USED` terminal state.
+5. Code is sent via DM by `sendClaimCodeMessage`.
+6. Ephemeral success/error response is sent to channel.
+
+### Flow B: `/yt <game>`
+
+1. Discord interaction arrives in `index.js`.
+2. Channel + game validation runs.
+3. `processYouTubeRewardCommand(client, userId, game)` orchestrates:
+   - Reads user code from `data/codes.json` via `getCodesReader`.
+   - Rejects if missing, used, or expired.
+   - Checks existing YouTube processing store via `findCodeInCommentStore`.
+4. If needed, `processComments(game)` runs:
+   - Fetches top-level YouTube comments (`fetchComments`).
+   - Skips already processed comments (`isProcessed`).
+   - Parses `username:CODE` (`parseComment`).
+   - Validates code (`validateCode`) and consumes (`consumeCode`) if valid.
+   - Persists per-comment lifecycle (`saveComment`).
+5. On success, reward is DMed through `sendRewardMessage`.
+6. Ephemeral channel response confirms completion or reports reason.
+
+## Design Principles
+
+### 1) One Game -> One Video
+
+Every game in `GAME_CONFIG` maps to exactly one YouTube video (`videoId`), which keeps processing deterministic.
+
+### 2) Validation-First Mutation
 
-## Overview
+Codes are consumed only after all checks pass (exists, unused, unexpired, game match).
 
-A Discord-integrated system designed to: - Generate unique claim codes -
-Drive engagement on YouTube videos - Validate user comments - Securely
-distribute rewards
+### 3) Config-Driven Behavior
 
-------------------------------------------------------------------------
+Core behavior is centralized in config (`CODE_LENGTH`, `CODE_EXPIRY_MS`, `GAME_CONFIG`, status/reason enums).
 
-## End-to-End Flow
+### 4) File-Lock Concurrency Safety
 
-/claim (Discord) → Generate code → User comments on YouTube:
-username:CODE → System fetches comments → Parse → Validate → Consume →
-Reward
+Critical read-modify-write operations are wrapped with `withLock(...)` from `utils/dataLock.js`.
 
-------------------------------------------------------------------------
+### 5) Persistent Auditability
 
-## Core Architecture Principles
+State and outcomes are persisted as JSON files and append-only structured logs.
 
-### 1. One Game = One Video
+## Data Model
 
-Each game is mapped to exactly one YouTube video.
+### `data/codes.json`
 
-### 2. Validation-Driven System
+Object keyed by code:
 
-No redundant action field. Everything is driven by: -
-validation.success - validation.reason
+```json
+{
+  "ABC123": {
+    "userId": "123456789012345678",
+    "username": "UserA",
+    "game": "GTA-VC",
+    "used": false,
+    "createdAt": 1710000000000
+  }
+}
+```
 
-### 3. No Premature State Mutation
+### `data/youtube/<videoId>.json`
 
-Codes are consumed only after: - format valid - code valid - game match
+Per-video comment processing store:
 
-### 4. Config-Driven
+```json
+{
+  "videoId": "m0vT-8SA4tM",
+  "videoName": "Example Video",
+  "game": "GTA-VC",
+  "meta": {
+    "createdAt": 1710000000000,
+    "lastFetchedAt": 1710001234000
+  },
+  "comments": {
+    "COMMENT_ID": {
+      "raw": "name:ABC123",
+      "parsed": { "username": "name", "code": "ABC123" },
+      "validation": { "success": true },
+      "meta": { "processedAt": 1710001234000 }
+    }
+  }
+}
+```
 
-All constants live in config files: - CODE_LENGTH - GAME_CONFIG -
-CLAIM_RESULT
+## Important Methods
 
-------------------------------------------------------------------------
+### Command and Orchestration
 
-## Project Structure
+- `index.js`
+  - Interaction router for `/claim` and `/yt`.
 
-config/ constants.js claimResult.js
+### Claim Code Lifecycle
 
-services/ codeService.js claimRewardService.js youtubeCommentService.js
-youtubeClaimProcessor.js discordService.js
+- `services/codeService.js`
+  - `createCode(userId, username, game)` - generate/reuse/expire-aware code creation.
 
-utils/ fileUtils.js commentParser.js commentStore.js expiryUtils.js
-validationUtils.js
+- `services/claimRewardService.js`
+  - `validateCode(code, expectedGame)` - non-mutating validation.
+  - `consumeCode(code)` - marks code as used.
 
-data/ codes.json youtube/`<videoId>`{=html}.json
+### YouTube Processing
 
-scripts/ readCodes.js
+- `services/youtubeOnDemandRewardService.js`
+  - `processYouTubeRewardCommand(client, userId, game)` - `/yt` flow coordinator.
 
-index.js
+- `services/youtubeClaimProcessor.js`
+  - `processComments(game)` - fetch/parse/validate/consume/store pipeline.
 
-------------------------------------------------------------------------
+- `services/youtubeCommentService.js`
+  - `fetchComments(videoId)` - YouTube Data API fetch.
 
-## Claim Code Lifecycle
+### Storage and Query Helpers
 
-### Code Generation
+- `utils/commentStore.js`
+  - `initStore(videoId, videoName, game)`
+  - `isProcessed(videoId, commentId)`
+  - `saveComment(videoId, commentId, data)`
 
-Stored in codes.json
+- `utils/youtubeLookup.js`
+  - `findCodeInCommentStore(videoId, code)` - latest processed result lookup.
 
-{ "ABC123": { "userId": "...", "username": "...", "game": "GTA-VC",
-"used": false, "createdAt": 123456789 } }
+- `utils/codeReader.js`
+  - `getCodesReader(codesPath)` and reader methods (`findByUser`, `findByCode`).
 
-------------------------------------------------------------------------
+### Validation and Parsing
 
-## Comment Format
+- `utils/validationUtils.js`
+  - `normalizeGame`, `isSupportedGame`, `isGlobalChannelAllowed`, `getRewardForGame`.
 
-username:CODE
+- `utils/commentParser.js`
+  - `parseComment(text)` for `username:CODE`.
 
-Example: Jai:ABC123
+## Configuration
 
-------------------------------------------------------------------------
+Set environment variables in `.env`:
 
-## Parser Rules
+```env
+BOT_TOKEN=...
+CLIENT_ID=...
+GUILD_ID=...
+YOUTUBE_API_KEY=...
+```
 
--   Split using first colon
--   Trim spaces
--   Normalize code to uppercase
--   Validate using CODE_LENGTH
+Optional:
 
-------------------------------------------------------------------------
+```env
+CODES_FILE_PATH=data/codes.json
+GLOBAL_ALLOWED_CHANNELS=1234567890,2345678901
+```
 
-## Validation System
+## Usage
 
-Defined in config/claimResult.js:
+### 1) Install Dependencies
 
-PARSE_FAILED INVALID_CODE ALREADY_USED EXPIRED GAME_MISMATCH
+```bash
+npm install
+```
 
-------------------------------------------------------------------------
+### 2) Register Slash Commands
 
-## Processing Flow
+```bash
+node deploy-commands.js
+```
 
-1.  Fetch comments
-2.  Skip duplicates
-3.  Parse
-4.  Validate + consume
-5.  Store result
-6.  Send reward
+### 3) Start the Bot
 
-------------------------------------------------------------------------
+```bash
+npm start
+```
 
-## Comment Storage
+## Command Usage
 
-data/youtube/`<videoId>`{=html}.json
+### `/claim game:<GAME_CODE>`
 
-{ "videoId": "...", "game": "...", "meta": {}, "comments": {
-"commentId": { "raw": "...", "parsed": {}, "validation": {}, "meta": {}
-} } }
+- Generates or returns an active claim code for that game.
+- Sends the code to DM.
+- If code is already used, user gets an error.
 
-------------------------------------------------------------------------
+### `/yt game:<GAME_CODE>`
 
-## Deduplication
+- Verifies user comment from the mapped YouTube video.
+- Valid comment format: `username:CODE` (example: `Jai:ABC123`).
+- If valid and unconsumed, reward is sent by DM.
 
--   Based on commentId
--   Prevents reprocessing
+## Logging and Operations
 
-------------------------------------------------------------------------
+- Application logs are written to `logs/app.log` as one JSON object per line.
+- Useful scripts:
+  - `scripts/readCodes.js`
+  - `scripts/readLogs.js`
+  - `scripts/testYoutube.js`
+  - `test-codes-lockfile.js`
+  - `test-comments-lockfile.js`
+  - `test-scalability.js`
 
-## Store Behavior
+## Troubleshooting
 
--   Auto-create file
--   Reinitialize if corrupted
--   Maintain metadata
+### Commands not visible in Discord
 
-------------------------------------------------------------------------
+- Re-run command registration:
+  - `node deploy-commands.js`
+- Verify `.env` values:
+  - `BOT_TOKEN`
+  - `CLIENT_ID`
+  - `GUILD_ID`
 
-## Reward Logic
+### `/claim` or `/yt` says channel not allowed
 
-Handled in claimRewardService:
+- Check `GLOBAL_ALLOWED_CHANNELS` in `.env` or default in `config/constants.js`.
+- Check per-game `allowedChannelIds` in `GAME_CONFIG`.
+- Ensure game channels are a subset of global allowed channels.
 
--   Check existence
--   Check used
--   Check expiry
--   Check game match
--   Then consume
+### `/yt` says comment not found or failed validation
 
-------------------------------------------------------------------------
+- Ensure comment format is exactly `username:CODE`.
+- Ensure the code belongs to the same game/video.
+- Ensure code has not expired and is not already used.
+- Retry `/yt` after the comment is visible publicly on YouTube.
 
-## Logging
+### JSON storage issues
 
-Logs include: - Invalid comment format - Missing comment ID - Invalid
-codes - Processing summary
+- Confirm `data/codes.json` and `data/youtube/` are writable.
+- If a store file becomes malformed, back it up and reinitialize.
 
-------------------------------------------------------------------------
+## Guarantees and Constraints
 
-## Running the App
+### Guarantees
 
-node index.js
+- No duplicate code consumption (single-use enforcement).
+- No reprocessing of already-seen comments (commentId dedupe).
+- Game-specific verification path using `GAME_CONFIG`.
 
-------------------------------------------------------------------------
+### Constraints
 
-## Key Guarantees
+- JSON file storage (no database).
+- Synchronous fs operations (adequate for low/moderate load).
+- YouTube processing is currently on-demand (`/yt`) rather than scheduled.
 
--   No reward leakage
--   No duplicate processing
--   No accidental code consumption
--   Fully traceable system
+## Security Notes
 
-------------------------------------------------------------------------
+- Never commit real credentials or API keys.
+- Rotate secrets immediately if exposed.
+- Restrict command channels using `GLOBAL_ALLOWED_CHANNELS` and per-game `allowedChannelIds`.
 
-## Future Enhancements
+## Known Limitations
 
--   Scheduler
--   Retry logic
--   Analytics
--   Admin dashboard
-
-------------------------------------------------------------------------
-
-## System Status
-
-Stable and production-ready.
+- Storage is file-based JSON, not a database.
+- File operations are synchronous and can become a bottleneck at higher scale.
+- YouTube verification is on-demand (`/yt`), not scheduler-driven.
+- Test suite is script-based; no automated CI test harness yet.

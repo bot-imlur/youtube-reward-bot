@@ -23,7 +23,7 @@
 
 const { fetchComments } = require('./youtubeCommentService');
 const { parseComment } = require('../utils/commentParser');
-const { validateAndConsumeCode } = require('./claimRewardService');
+const { validateCode, consumeCode } = require('./claimRewardService');
 const { getRewardForGame} = require('../utils/validationUtils');
 const { initStore, isProcessed, saveComment } = require('../utils/commentStore');
 const { GAME_CONFIG } = require('../config/constants');
@@ -43,7 +43,7 @@ async function processComments(game) {
   const { videoId, videoName } = GAME_CONFIG[game];
 
   // Initialize store (per video)
-  initStore(videoId, videoName, game);
+  await initStore(videoId, videoName, game);
 
   // Fetch comments from this game's video
   const comments = await fetchComments(videoId);
@@ -62,7 +62,7 @@ async function processComments(game) {
     }
 
     // Skip already processed comments
-    if (isProcessed(videoId, id)) {
+    if (await isProcessed(videoId, id)) {
       continue;
     }
 
@@ -75,22 +75,32 @@ async function processComments(game) {
     };
 
     if (parsed) {
-      validation = validateAndConsumeCode(parsed.code, game);
+      // Step 1: Validate the code
+      validation = await validateCode(parsed.code, game);
 
+      // Ensure validation always has a reason
+      if (!validation.reason) {
+        validation.reason = CLAIM_RESULT.UNKNOWN;
+      }
+
+      // Step 2: If validation succeeded, consume the code
       if (validation.success) {
-        const reward = getRewardForGame(game);
+        const consumeResult = await consumeCode(parsed.code);
+        if (consumeResult.success) {
+          const reward = getRewardForGame(game);
 
-        results.push({
-          code: parsed.code,
-          userId: validation.userId,
-          game,
-          reward
-        });
+          results.push({
+            code: parsed.code,
+            userId: validation.userId,
+            game,
+            reward
+          });
+        }
       }
     }
 
     // Save comment lifecycle
-    saveComment(videoId, id, {
+    await saveComment(videoId, id, {
       raw: text,
       parsed,
       validation,

@@ -6,7 +6,7 @@
  * - Prevents duplication across controller, service, and future integrations
  */
 
-const { GAME_CONFIG } = require('../config/constants');
+const { GAME_CONFIG, GLOBAL_ALLOWED_CHANNELS } = require('../config/constants');
 
 /**
  * Normalizes game input to canonical format
@@ -23,25 +23,27 @@ function normalizeGame(game) {
 }
 
 /**
- * Checks whether a given game is supported and enabled.
+ * Checks whether a given game is supported, enabled, and available in the current channel.
  *
  * @param {string} game - Game name provided by user
- * @returns {boolean} True if game exists and is enabled, otherwise false
+ * @param {string} channelId - Discord channel ID
+ * @returns {boolean} True if game exists, is enabled, and available in this channel, otherwise false
  */
-function isSupportedGame(game) {
+function isSupportedGame(game, channelId = null) {
   const normalized = normalizeGame(game);
-  return normalized && GAME_CONFIG[normalized]?.enabled === true;
-}
+  if (!normalized) return false;
+  
+  const gameConfig = GAME_CONFIG[normalized];
+  if (!gameConfig?.enabled) return false;
 
-/**
- * Returns a list of all enabled games.
- *
- * @returns {string[]} Array of enabled game names
- */
-function getEnabledGames() {
-  return Object.entries(GAME_CONFIG)
-    .filter(([_, config]) => config.enabled)
-    .map(([game]) => game);
+  // If channelId provided, check if game is available in that channel
+  if (channelId) {
+    if (gameConfig.allowedChannelIds && gameConfig.allowedChannelIds.length > 0) {
+      return gameConfig.allowedChannelIds.includes(channelId);
+    }
+  }
+
+  return true;
 }
 
 /**
@@ -55,9 +57,22 @@ function getRewardForGame(game) {
   return GAME_CONFIG[normalized]?.reward || null;
 }
 
+/**
+ * Check if a command is allowed in the given channel (global check)
+ *
+ * @param {string} channelId - Discord channel ID
+ * @returns {boolean} true if channel is in global allowed list, false otherwise
+ */
+function isGlobalChannelAllowed(channelId) {
+  if (!GLOBAL_ALLOWED_CHANNELS || GLOBAL_ALLOWED_CHANNELS.length === 0) {
+    return true; // All channels allowed if not configured
+  }
+  return GLOBAL_ALLOWED_CHANNELS.includes(channelId);
+}
+
 module.exports = {
   normalizeGame,
   isSupportedGame,
-  getEnabledGames,
-  getRewardForGame
+  getRewardForGame,
+  isGlobalChannelAllowed
 };

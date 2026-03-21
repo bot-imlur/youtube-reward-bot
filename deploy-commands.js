@@ -18,7 +18,15 @@ const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 const commands = [
   new SlashCommandBuilder()
     .setName('claim')
-    .setDescription('Claim a reward')
+    .setDescription('Generate code to claim your reward')
+    .addStringOption(option =>
+      option.setName('game')
+        .setDescription('Game name')
+        .setRequired(true)
+    ),
+  new SlashCommandBuilder()
+    .setName('yt')
+    .setDescription('Claim your reward after commenting on YouTube')
     .addStringOption(option =>
       option.setName('game')
         .setDescription('Game name')

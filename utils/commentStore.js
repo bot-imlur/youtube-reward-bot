@@ -15,6 +15,7 @@
 const fs = require('fs');
 const path = require('path');
 const { readJsonFile, writeJsonFile } = require('./fileUtils');
+const { withLock } = require('./dataLock');
 
 const BASE_DIR = path.join(process.cwd(), 'data/youtube');
 
@@ -40,77 +41,97 @@ function getFilePath(videoId) {
 
 /**
  * Initializes store file if it does not exist
+ * 
+ * Thread-Safety:
+ * - Entire initialization sequence is protected by file lock.
+ * - Prevents concurrent initialization from corrupting structure.
  *
  * @param {string} videoId
  * @param {string} videoName
  * @param {string} game
  */
-function initStore(videoId, videoName = null, game = null) {
+async function initStore(videoId, videoName = null, game = null) {
   const filePath = getFilePath(videoId);
 
-  let store = {};
+  return withLock(filePath, async () => {
+    let store = {};
 
-  if (fs.existsSync(filePath)) {
-    store = readJsonFile(filePath);
-  }
+    if (fs.existsSync(filePath)) {
+      store = readJsonFile(filePath);
+    }
 
-  // If structure is broken or empty → reinitialize
-  if (
-    !store.videoId ||
-    !store.meta ||
-    !store.comments
-  ) {
-    const initialData = {
-      videoId,
-      videoName,
-      game,
-      meta: {
-        createdAt: Date.now(),
-        lastFetchedAt: null
-      },
-      comments: {}
-    };
+    // If structure is broken or empty → reinitialize
+    if (
+      !store.videoId ||
+      !store.meta ||
+      !store.comments
+    ) {
+      const initialData = {
+        videoId,
+        videoName,
+        game,
+        meta: {
+          createdAt: Date.now(),
+          lastFetchedAt: null
+        },
+        comments: {}
+      };
 
-    writeJsonFile(filePath, initialData);
-  }
+      writeJsonFile(filePath, initialData);
+    }
+  });
 }
 
 /**
  * Checks if a comment is already processed
+ * 
+ * Thread-Safety:
+ * - File read is protected by lock to ensure consistent view.
+ * - Short lock duration (read-only).
  *
  * @param {string} videoId
  * @param {string} commentId
- * @returns {boolean}
+ * @returns {Promise<boolean>}
  */
-function isProcessed(videoId, commentId) {
+async function isProcessed(videoId, commentId) {
   const filePath = getFilePath(videoId);
-  const store = readJsonFile(filePath);
 
-  return store.comments && !!store.comments[commentId];
+  return withLock(filePath, async () => {
+    const store = readJsonFile(filePath);
+    return store.comments && !!store.comments[commentId];
+  });
 }
 
 /**
  * Saves a processed comment
+ * 
+ * Thread-Safety:
+ * - Entire read-modify-write sequence is protected by file lock.
+ * - Ensures comment data and metadata are atomically updated.
  *
  * @param {string} videoId
  * @param {string} commentId
  * @param {object} data
+ * @returns {Promise<void>}
  */
-function saveComment(videoId, commentId, data) {
+async function saveComment(videoId, commentId, data) {
   const filePath = getFilePath(videoId);
-  const store = readJsonFile(filePath);
 
-  if (!store.comments) {
-    store.comments = {};
-  }
+  return withLock(filePath, async () => {
+    const store = readJsonFile(filePath);
 
-  store.comments[commentId] = data;
+    if (!store.comments) {
+      store.comments = {};
+    }
 
-  if (store.meta) {
-    store.meta.lastFetchedAt = Date.now();
-  }
+    store.comments[commentId] = data;
 
-  writeJsonFile(filePath, store);
+    if (store.meta) {
+      store.meta.lastFetchedAt = Date.now();
+    }
+
+    writeJsonFile(filePath, store);
+  });
 }
 
 module.exports = {

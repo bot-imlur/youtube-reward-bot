@@ -42,9 +42,33 @@ const CLAIM_RESULT = {
    * Code belongs to a different game
    * than the one being processed
    */
-  GAME_MISMATCH: "GAME_MISMATCH"
+  GAME_MISMATCH: "GAME_MISMATCH",
+
+  /**
+   * Unknown validation error
+   */
+  UNKNOWN: "UNKNOWN"
 };
 
+/**
+ * Translates validation reason codes to user-friendly messages
+ * @param {string} reasonCode - CLAIM_RESULT constant
+ * @returns {string} Human-readable error message
+ */
+function getHumanReadableReason(reasonCode) {
+  const reasonMap = {
+    [CLAIM_RESULT.PARSE_FAILED]: 'Your comment format is invalid (use format: yourname:CODE). Please check and comment again.',
+    [CLAIM_RESULT.INVALID_CODE]: 'Your code does not exist or is invalid. Please check and comment again.',
+    [CLAIM_RESULT.ALREADY_USED]: 'Your code has already been used',
+    [CLAIM_RESULT.EXPIRED]: 'Your code has expired. Request a new one with /claim command.',
+    [CLAIM_RESULT.GAME_MISMATCH]: 'Your code is for a different game. Please check and comment on the correct video.',
+    [CLAIM_RESULT.UNKNOWN]: 'Unknown validation error'
+  };
+  
+  return reasonMap[reasonCode] || reasonCode;
+}
+
 module.exports = {
-  CLAIM_RESULT
+  CLAIM_RESULT,
+  getHumanReadableReason
 };

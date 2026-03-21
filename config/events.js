@@ -77,7 +77,25 @@ const EVENTS = {
   /**
    * User attempted to request an unsupported or disabled game
    */
-  INVALID_GAME_REQUEST: "INVALID_GAME_REQUEST"
+  INVALID_GAME_REQUEST: "INVALID_GAME_REQUEST",
+
+  /**
+   * Reward successfully delivered to a user after code consumption.
+   * Triggered after consumeCode succeeds and reward is dispatched.
+   */
+  REWARD_SENT: "REWARD_SENT",
+
+  /**
+   * Bot successfully posted a reply on the user's YouTube comment.
+   * Fired after replyToComment succeeds (non-critical, best-effort).
+   */
+  REWARD_REPLY_POSTED: "REWARD_REPLY_POSTED",
+
+  /**
+   * An admin used /admin-overwrite to forcibly issue a new code for a user.
+   * Logs both the admin invoker and the target user for full auditability.
+   */
+  ADMIN_CODE_OVERWRITE: "ADMIN_CODE_OVERWRITE"
 };
 
 module.exports = {

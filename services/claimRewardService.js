@@ -4,6 +4,8 @@ const { withLock } = require('../utils/dataLock');
 const { CODES_FILE_PATH } = require('../config/constants');
 const { isExpired } = require('../utils/expiryUtils');
 const { CLAIM_RESULT } = require('../config/claimResult');
+const { EVENTS } = require('../config/events');
+const logger = require('../utils/logger');
 
 const CODES_PATH = path.join(process.cwd(), CODES_FILE_PATH);
 
@@ -100,6 +102,13 @@ async function consumeCode(code) {
 
     entry.used = true;
     writeJsonFile(CODES_PATH, codes);
+
+    logger.info(EVENTS.CODE_CONSUMED, {
+      code,
+      userId: entry.userId,
+      username: entry.username,
+      game: entry.game
+    });
 
     return { success: true };
   });

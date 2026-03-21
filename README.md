@@ -322,7 +322,43 @@ npm start
 
 ## Known Limitations
 
-- Storage is file-based JSON, not a database.
-- File operations are synchronous and can become a bottleneck at higher scale.
-- YouTube verification is on-demand (`/claim`), not scheduler-driven.
-- Test suite is script-based; no automated CI test harness yet.
+### Storage
+
+- Storage is file-based JSON, not a database. Not suitable for high write concurrency or large datasets.
+- File I/O operations are synchronous. Adequate for low/moderate load; becomes a bottleneck at scale.
+- **TODO:** Migrate to a proper database (e.g. SQLite, PostgreSQL) when user volume grows significantly.
+
+### YouTube API
+
+- **Single-page fetch only (50 comments max per call).** The API is paginated but only page 1 is fetched. If more than 50 comments arrive between scheduler runs, older comments in that batch will not be processed until the next cycle.
+  - **Future improvement:** Implement paginated fetching with a configurable `MAX_PAGES` cap and early exit when an entire page is already processed (all comments in it are in the comment store).
+
+- **`order: time` assumption.** Comments are fetched newest-first. This is optimal for the reward flow but means older comments (e.g. from users who commented days ago but never ran `/claim`) will be pushed off page 1 over time.
+
+- **No retry on transient failures.** A network error or YouTube 5xx during `fetchComments` causes the entire `/claim` to fail for that user. They must retry manually.
+  - **Future improvement:** Add exponential backoff retry (e.g. `axios-retry`) for transient errors.
+
+- **Deleted or spam-held comments are invisible.** If YouTube's spam filter holds a user's comment for review, the bot cannot see it. No mitigation is possible on the bot side.
+
+- **YouTube API quota (free tier: 10,000 units/day).** Each `commentThreads.list` call costs 1 unit. At current traffic levels this is not a concern. Monitor via GCP Console if volume grows.
+
+### Concurrency
+
+- **Cold-store concurrent `/claim` calls fire redundant YouTube API requests.** If 10 users hit `/claim` simultaneously and none of their comments are in the store yet, all 10 trigger independent `processComments` calls — 10 API requests for the same video instead of 1. Correctness is preserved (locks prevent duplicate writes) but quota and CPU are wasted.
+  - **Future improvement:** Add an in-flight deduplication guard in `processYouTubeRewardCommand` — if `processComments` is already running for a game, queue subsequent calls to await the same result.
+
+- **`isProcessed` acquires a file lock per comment in the processing loop.** For 50 comments that is 50 sequential lock/read/release cycles on the same file within one `processComments` call.
+  - **Future improvement:** Read the comment store once at the start of `processComments`, build a `Set` of already-processed comment IDs, and check membership in-memory. Only `saveComment` needs the lock.
+
+### Operations
+
+- **YouTube processing is on-demand (`/claim`), not scheduler-driven.** A scheduled background job would keep the comment store warm, reducing API calls and improving `/claim` response time.
+  - **TODO:** Implement a scheduler (e.g. using `node-cron`) that calls `processComments` for each enabled game at a configurable interval (e.g. every 2 hours).
+
+- **Test suite is script-based.** No automated CI test harness exists. Validation is manual via `scripts/` and `test-*.js` files.
+  - **TODO:** Add a proper test framework (e.g. Jest) with unit tests for `codeService`, `claimRewardService`, and `youtubeClaimProcessor`.
+
+### Security
+
+- `/admin-overwrite` is registered as a public slash command (visible to all users in the server). Authorization is enforced at runtime via `ADMIN_USER_ID`, but the command is still discoverable.
+  - **Note:** Discord does not currently support server-side command permission scoping for user IDs out of the box without using guild-level permission overrides.

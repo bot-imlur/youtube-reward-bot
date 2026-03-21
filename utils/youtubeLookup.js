@@ -2,33 +2,40 @@
  * YouTube Comment Data Store Lookup
  *
  * Responsibility:
- * - Query youtube data store for code validation results
- * - Search for user's comments with specific codes
- * - Helper functions for /yt command logic
+ * - Query the per-video comment store for code validation results.
+ * - Used by the /claim flow to check if a user's code has already been
+ *   validated before triggering a fresh YouTube API fetch.
  *
- * Note: This queries the YOUTUBE comment store (data/youtube/{videoId}.json),
- * not the codes.json file. Different from codeService which manages code lifecycle.
+ * Note: Queries data/youtube/{videoId}.json (the comment store),
+ * not codes.json. These are separate concerns.
  */
 
 const path = require('path');
 const fs = require('fs');
 const { readJsonFile } = require('./fileUtils');
+const logger = require('./logger');
 
 const YOUTUBE_DIR = path.join(process.cwd(), 'data/youtube');
 
 /**
- * Get file path for a video's comment store
+ * Returns the file path for a video's comment store.
+ *
+ * @param {string} videoId
+ * @returns {string}
  */
 function getCommentStorePath(videoId) {
   return path.join(YOUTUBE_DIR, `${videoId}.json`);
 }
 
 /**
- * Search youtube comment store for a specific code's validation result
- * 
+ * Searches the YouTube comment store for a specific code's validation result.
+ *
+ * If the same code appears in multiple comments (e.g. duplicate submissions),
+ * the LATEST processed entry is returned regardless of success or failure.
+ *
  * @param {string} videoId
  * @param {string} code - The claim code to search for
- * @returns {Object|null} 
+ * @returns {object|null}
  *   {
  *     commentId,
  *     found: true,
@@ -36,32 +43,28 @@ function getCommentStorePath(videoId) {
  *     raw: "original comment text",
  *     processedAt: timestamp
  *   }
- *   Returns the LATEST validation (successful OR failed) for this code.
- *   Returns null if code not found in store at all.
+ *   Returns null if the code has not been seen in the store yet.
  */
 function findCodeInCommentStore(videoId, code) {
   const storePath = getCommentStorePath(videoId);
-  
+
   if (!fs.existsSync(storePath)) {
-    console.log(`[findCodeInCommentStore] Store file not found: ${storePath}`);
+    logger.info('COMMENT_STORE_NOT_FOUND', { videoId, storePath });
     return null;
   }
-  
+
   const store = readJsonFile(storePath);
-  
+
   if (!store.comments) {
-    console.log(`[findCodeInCommentStore] No comments in store`);
+    logger.info('COMMENT_STORE_EMPTY', { videoId });
     return null;
   }
-  
-  console.log(`[findCodeInCommentStore] Searching for code "${code}" in ${Object.keys(store.comments).length} comments`);
-  
-  // Search all comments for this code, collect ALL matches (success OR failed)
+
+  // Collect all comments that contain this code (duplicate submissions possible)
   const allMatches = [];
-  
+
   for (const [commentId, commentData] of Object.entries(store.comments)) {
     if (commentData.parsed && commentData.parsed.code === code) {
-      console.log(`[findCodeInCommentStore] Found comment with code ${code}:`, commentData.validation);
       allMatches.push({
         commentId,
         found: true,
@@ -72,22 +75,20 @@ function findCodeInCommentStore(videoId, code) {
       });
     }
   }
-  
-  // If we found any matches, return the LATEST one (regardless of success/failure)
-  if (allMatches.length > 0) {
-    console.log(`[findCodeInCommentStore] Found ${allMatches.length} matches for code ${code}`);
-    return allMatches.reduce((latest, current) => 
-      (current.timestamp > latest.timestamp) ? current : latest
-    );
+
+  if (allMatches.length === 0) {
+    return null;
   }
-  
-  console.log(`[findCodeInCommentStore] No validation found for code ${code}`);
-  return null;
+
+  // Return the latest entry in case of duplicates
+  return allMatches.reduce((latest, current) =>
+    (current.timestamp > latest.timestamp) ? current : latest
+  );
 }
 
 /**
- * Check if a code was successfully validated in youtube comment store
- * 
+ * Returns true if a code was successfully validated in the comment store.
+ *
  * @param {string} videoId
  * @param {string} code
  * @returns {boolean}
@@ -98,11 +99,11 @@ function isCodeSuccessfulInCommentStore(videoId, code) {
 }
 
 /**
- * Get the validation result for a code from comment store
- * 
+ * Returns the raw validation object for a code from the comment store.
+ *
  * @param {string} videoId
  * @param {string} code
- * @returns {Object|null} - validation object with success, reason, userId, game
+ * @returns {object|null}
  */
 function getCodeValidationFromCommentStore(videoId, code) {
   const result = findCodeInCommentStore(videoId, code);

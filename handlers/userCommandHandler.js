@@ -5,7 +5,7 @@ const { EVENTS } = require('../config/events');
 const logger = require('../utils/logger');
 const { processYouTubeRewardCommand } = require('../services/youtubeOnDemandRewardService');
 const { sendClaimCodeMessage, formatErrorReply, sendRewardMessage } = require('../services/discordService');
-const { GAME_CONFIG } = require('../config/constants');
+const { GAME_CONFIG, YOUTUBE_CHANNEL_URL } = require('../config/constants');
 const { STATUS } = require('../config/status');
 const { COMMANDS } = require('../config/commands');
 
@@ -39,7 +39,7 @@ async function handleGenerate(client, interaction) {
     game
   );
 
-  const { fullName } = GAME_CONFIG[game];
+  const { fullName, videoName } = GAME_CONFIG[game];
   if (result.status === STATUS.ALREADY_USED) {
     await interaction.reply({
       content: formatErrorReply(fullName, `You have already claimed the reward for this game`),
@@ -54,7 +54,9 @@ async function handleGenerate(client, interaction) {
     game,
     fullName,
     result.code,
-    result.expiresAt
+    result.expiresAt,
+    YOUTUBE_CHANNEL_URL,
+    videoName
   );
 
   await interaction.reply({

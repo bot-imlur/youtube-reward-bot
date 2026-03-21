@@ -27,9 +27,12 @@ const {
 const { processComments } = require('./youtubeClaimProcessor');
 const { getRewardForGame } = require('../utils/validationUtils');
 const { isExpired } = require('../utils/expiryUtils');
-const { validateCode, consumeCode } = require('./claimRewardService');
+const { consumeCode } = require('./claimRewardService');
+const { replyToComment } = require('./youtubeCommentService');
 const { CODES_FILE_PATH, GAME_CONFIG } = require('../config/constants');
 const { getHumanReadableReason } = require('../config/claimResult');
+const { EVENTS } = require('../config/events');
+const logger = require('../utils/logger');
 
 /**
  * Check YouTube comment store for successful validation and consume code if valid
@@ -41,9 +44,7 @@ const { getHumanReadableReason } = require('../config/claimResult');
  * @returns {Promise<{found: boolean, consumed: boolean, reward?: string, reason?: string}>}
  */
 async function checkAndConsumeValidatedCode(videoId, code, game) {
-  console.log(`[checkAndConsumeValidatedCode] Checking code "${code}" for game "${game}"`);
   const codeData = findCodeInCommentStore(videoId, code);
-  console.log(`[checkAndConsumeValidatedCode] codeData:`, codeData);
 
   if (!codeData) {
     return {
@@ -53,15 +54,29 @@ async function checkAndConsumeValidatedCode(videoId, code, game) {
     };
   }
 
-  // Comment found - check if validation succeeded
+  // Comment found — check if validation succeeded
   if (codeData.validation && codeData.validation.success === true) {
-    // Validation succeeded - consume the code
-    console.log(`[checkAndConsumeValidatedCode] Validation successful, consuming code`);
     const consumeResult = await consumeCode(code);
-    console.log(`[checkAndConsumeValidatedCode] consumeResult:`, consumeResult);
-    
+
     if (consumeResult.success) {
       const reward = getRewardForGame(game);
+
+      logger.info(EVENTS.REWARD_SENT, {
+        code,
+        userId: codeData.validation.userId,
+        game,
+        reward,
+        commentId: codeData.commentId
+      });
+
+      // Fire-and-forget: reply to the YouTube comment to acknowledge the reward
+      // Failure here must never block reward delivery — logged as warning only
+      replyToComment(codeData.commentId)
+        .then(() => logger.info(EVENTS.REWARD_REPLY_POSTED, { commentId: codeData.commentId }))
+        .catch(err =>
+          logger.warn('YOUTUBE_REPLY_FAILED', { commentId: codeData.commentId, error: err.message })
+        );
+
       return {
         found: true,
         consumed: true,
@@ -70,7 +85,7 @@ async function checkAndConsumeValidatedCode(videoId, code, game) {
     }
   }
 
-  // Comment found but validation failed - return the reason
+  // Comment found but validation failed — return the reason
   const reason = codeData.validation?.reason || 'Unknown validation error';
   return {
     found: true,
@@ -140,29 +155,28 @@ async function processYouTubeRewardCommand(client, userId, game) {
     };
   }
 
-  // Step 3: Code not found in store - run processor to fetch fresh comments
-  console.log(`[/yt] Running processor for ${game} to fetch fresh comments`);
-  const processorResults = await processComments(game);
-  
-  // Step 4: Check if user's code was in the results
-  const userResult = processorResults.find(r => r.userId === userId && r.code === userCode.code);
-  
-  if (userResult) {
-    // Processor found and successfully validated the code (already consumed)
+  // Step 3: Code not found in store - run processor to fetch and validate fresh comments
+  // Note: processComments validates all new comments but does NOT consume any.
+  // Consumption is done below, only for the invoking user's specific code.
+  await processComments(game);
+
+  // Step 4: Recheck the store now that new comments have been processed
+  result = await checkAndConsumeValidatedCode(videoId, userCode.code, game);
+  if (result.consumed) {
     return {
       success: true,
       gameFullName: fullName,
       isError: false,
-      reward: userResult.reward
+      reward: result.reward
     };
   }
 
-  // Step 5: Processor didn't find valid code - show reason
+  // Step 5: Still not found or validation failed — show reason
   const updatedCodeData = findCodeInCommentStore(videoId, userCode.code);
-  const validationReason = updatedCodeData?.validation?.reason 
+  const validationReason = updatedCodeData?.validation?.reason
     ? getHumanReadableReason(updatedCodeData.validation.reason)
     : 'Your YouTube comment for this code was not found or failed validation';
-  
+
   const reason = `${validationReason}\n\nMake sure you commented on the video with format=> yourname:${userCode.code} E.g, Adarsh:XYP231`;
   return {
     success: false,

@@ -25,10 +25,14 @@ const COMMANDS = {
       }
     }
   },
+  /**
+   * Admin-only command to overwrite a user's code and deliver reward directly.
+   * Access is restricted at runtime to ADMIN_USER_ID via adminCommandHandler.
+   */
   ADMIN_OVERWRITE: {
     name: 'admin-overwrite',
     description: 'Admin override for user reward flow',
-    deploy: false,
+    deploy: true,
     options: {
       USER_ID: {
         name: 'user_id',

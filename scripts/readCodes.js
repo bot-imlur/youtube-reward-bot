@@ -3,15 +3,23 @@
  *
  * Purpose:
  * - Provides a readable, queryable view of codes.json
- * - Supports filtering by userId and code
- * - Displays derived fields (e.g., Expired) for better observability
+ * - Displays all fields including the adminOverwrite flag
+ * - Supports filtering by userId, code, game, used, expired, and adminOverwrite
  *
  * Usage:
  *   node scripts/readCodes.js
  *   node scripts/readCodes.js --user <userId>
  *   node scripts/readCodes.js --code <code>
+ *   node scripts/readCodes.js --game GTA-VC
+ *   node scripts/readCodes.js --used true
+ *   node scripts/readCodes.js --expired true
+ *   node scripts/readCodes.js --admin-overwrite true
+ *
+ * Flags can be combined:
+ *   node scripts/readCodes.js --game GTA-VC --used false --expired false
  */
 
+require('dotenv').config();
 const path = require('path');
 const { getCodesReader } = require('../utils/codeReader');
 const { isExpired } = require('../utils/expiryUtils');
@@ -24,9 +32,11 @@ const FILE_PATH = path.join(process.cwd(), CODES_FILE_PATH);
 const args = process.argv.slice(2);
 
 /**
- * Retrieves value for a CLI flag.
- * Example:
- *   --user 123 → returns "123"
+ * Retrieves value for a CLI flag that expects a string argument.
+ * Example: --game GTA-VC → returns "GTA-VC"
+ *
+ * @param {string} flag - CLI flag name (e.g. "--game")
+ * @returns {string|null}
  */
 function getArg(flag) {
   const index = args.indexOf(flag);
@@ -34,15 +44,34 @@ function getArg(flag) {
 }
 
 /**
+ * Retrieves value for a CLI boolean flag and parses it.
+ * Example: --used true → returns true
+ *
+ * @param {string} flag - CLI flag name (e.g. "--used")
+ * @returns {boolean|null} Parsed boolean, or null if flag not present
+ */
+function getBoolArg(flag) {
+  const raw = getArg(flag);
+  if (raw === null) return null;
+  return raw.toLowerCase() === 'true';
+}
+
+/**
  * Converts timestamp into readable date-time string.
+ *
+ * @param {number} timestamp
+ * @returns {string}
  */
 function formatTime(timestamp) {
   return new Date(timestamp).toLocaleString();
 }
 
 /**
- * Transforms raw entry into display-friendly format.
- * Adds derived fields like "Expired".
+ * Transforms a raw code entry into a display-friendly row.
+ * Derives the Expired field and surfaces the AdminOverwrite flag.
+ *
+ * @param {object} entry - Code entry from codes.json (with .code key attached by reader)
+ * @returns {object} Display row
  */
 function formatRow(entry) {
   return {
@@ -52,17 +81,19 @@ function formatRow(entry) {
     Username: entry.username || '-',
     Used: entry.used,
     Expired: isExpired(entry.createdAt),
-
+    AdminOverwrite: entry.adminOverwrite ?? false, // false for codes created before this field was added
     CreatedAt: formatTime(entry.createdAt)
   };
 }
 
 /**
- * Prints rows in tabular format.
+ * Prints rows in tabular format, or a message if empty.
+ *
+ * @param {object[]} rows
  */
 function printTable(rows) {
   if (!rows.length) {
-    console.log('No records found');
+    console.log('No records found matching the specified filters.');
     return;
   }
 
@@ -70,10 +101,34 @@ function printTable(rows) {
 }
 
 /**
+ * Applies all active filters to an array of code entries.
+ *
+ * Supported filters: --game, --used, --expired, --admin-overwrite
+ *
+ * @param {object[]} entries - Raw code entries
+ * @returns {object[]} Filtered entries
+ */
+function applyFilters(entries) {
+  const gameFilter          = getArg('--game');
+  const usedFilter          = getBoolArg('--used');
+  const expiredFilter       = getBoolArg('--expired');
+  const adminOverwriteFilter = getBoolArg('--admin-overwrite');
+
+  return entries.filter(entry => {
+    if (gameFilter !== null && entry.game.toUpperCase() !== gameFilter.toUpperCase()) return false;
+    if (usedFilter !== null && entry.used !== usedFilter) return false;
+    if (expiredFilter !== null && isExpired(entry.createdAt) !== expiredFilter) return false;
+    if (adminOverwriteFilter !== null && (entry.adminOverwrite ?? false) !== adminOverwriteFilter) return false;
+    return true;
+  });
+}
+
+/**
  * Main CLI execution flow:
- * - Reads data
- * - Applies filters (if any)
- * - Prints results
+ * - Reads all data via code reader
+ * - Applies exact-match filters (--code, --user) first for fast lookups
+ * - Falls through to general filter pipeline for all other flags
+ * - Prints results as a table
  */
 function main() {
   const reader = getCodesReader(FILE_PATH);
@@ -81,22 +136,22 @@ function main() {
   const codeArg = getArg('--code');
   const userArg = getArg('--user');
 
-  // Filter by specific code
+  // Exact lookup by code (fast path — no further filtering applied)
   if (codeArg) {
     const result = reader.findByCode(codeArg);
     printTable(result ? [result] : []);
     return;
   }
 
-  // Filter by user
+  // Exact lookup by user, then apply remaining filters
   if (userArg) {
     const results = reader.findByUser(userArg);
-    printTable(results);
+    printTable(applyFilters(results));
     return;
   }
 
-  // Default: show all entries
-  printTable(reader.getAll());
+  // Default: all entries through the filter pipeline
+  printTable(applyFilters(reader.getAll()));
 }
 
 main();

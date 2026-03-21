@@ -3,37 +3,44 @@
  *
  * Purpose:
  * - Processes YouTube comments for a specific GAME
- * - Extracts codes, validates them, and prepares rewards
+ * - Extracts codes and validates them, then persists results to the comment store
+ *
+ * Design:
+ * - Does NOT consume codes. Consumption is the caller's responsibility.
+ *   This ensures only the user who runs /claim has their code consumed,
+ *   not every user whose comment happened to be fetched in the same batch.
+ * - Safe to call from a scheduler — it will never silently consume other users' codes.
  *
  * Rules:
  * - Each GAME maps to exactly one VIDEO
  * - Only comments from that video are processed
- * - Code must belong to the SAME game (enforced in service)
+ * - Code must belong to the SAME game (enforced by validateCode)
  *
  * Flow:
  * 1. Normalize and validate game
  * 2. Resolve videoId from GAME_CONFIG
  * 3. Initialize per-video store
- * 4. Fetch comments
+ * 4. Fetch all top-level comments
  * 5. Skip already processed comments
- * 6. Parse → validate (includes consume)
- * 7. Save comment lifecycle
- * 8. Return reward-ready results
+ * 6. Parse → validate → save result
+ * 7. Return validation-ready results (no consumption)
  */
 
 const { fetchComments } = require('./youtubeCommentService');
 const { parseComment } = require('../utils/commentParser');
-const { validateCode, consumeCode } = require('./claimRewardService');
-const { getRewardForGame} = require('../utils/validationUtils');
+const { validateCode } = require('./claimRewardService');
 const { initStore, isProcessed, saveComment } = require('../utils/commentStore');
 const { GAME_CONFIG } = require('../config/constants');
 const { CLAIM_RESULT } = require('../config/claimResult');
+const logger = require('../utils/logger');
 
 /**
- * Processes YouTube comments for a given game
+ * Fetches and validates YouTube comments for a given game, persisting each result
+ * to the per-video comment store. Does NOT consume any codes.
  *
- * @param {string} rawGame
- * @returns {Promise<Array>}
+ * @param {string} game - Normalized game key (e.g. "GTA-VC")
+ * @returns {Promise<Array<{ code: string, userId: string, game: string }>>}
+ *   List of comments that passed validation (caller decides whether to consume).
  */
 async function processComments(game) {
   if (!game || !GAME_CONFIG[game]?.enabled) {
@@ -42,10 +49,10 @@ async function processComments(game) {
 
   const { videoId, videoName } = GAME_CONFIG[game];
 
-  // Initialize store (per video)
+  // Initialize store (per video) — no-op if already exists
   await initStore(videoId, videoName, game);
 
-  // Fetch comments from this game's video
+  // Fetch top-level comments from this game's video
   const comments = await fetchComments(videoId);
 
   const results = [];
@@ -54,19 +61,16 @@ async function processComments(game) {
     const { id, text } = comment;
 
     if (!id) {
-      console.warn(
-        "[YouTube][INVALID_COMMENT_ID]",
-        { comment, game, videoId }
-      );
+      logger.warn('INVALID_COMMENT_ID', { comment, game, videoId });
       continue;
     }
 
-    // Skip already processed comments
+    // Skip already processed comments — their results are already in the store
     if (await isProcessed(videoId, id)) {
       continue;
     }
 
-    // Parse comment
+    // Parse comment into { username, code }
     const parsed = parseComment(text);
 
     let validation = {
@@ -75,31 +79,25 @@ async function processComments(game) {
     };
 
     if (parsed) {
-      // Step 1: Validate the code
+      // Validate the code (checks existence, used, expired, game match)
+      // Does NOT consume — consumeCode is intentionally not called here
       validation = await validateCode(parsed.code, game);
 
-      // Ensure validation always has a reason
       if (!validation.reason) {
         validation.reason = CLAIM_RESULT.UNKNOWN;
       }
 
-      // Step 2: If validation succeeded, consume the code
+      // Collect validated (but unconsumed) results for the caller to act on
       if (validation.success) {
-        const consumeResult = await consumeCode(parsed.code);
-        if (consumeResult.success) {
-          const reward = getRewardForGame(game);
-
-          results.push({
-            code: parsed.code,
-            userId: validation.userId,
-            game,
-            reward
-          });
-        }
+        results.push({
+          code: parsed.code,
+          userId: validation.userId,
+          game
+        });
       }
     }
 
-    // Save comment lifecycle
+    // Persist comment lifecycle regardless of outcome
     await saveComment(videoId, id, {
       raw: text,
       parsed,

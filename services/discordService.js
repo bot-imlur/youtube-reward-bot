@@ -34,22 +34,29 @@ function formatErrorReply(gameFullName, reason) {
  * @param {string} gameFullName - Full game name
  * @param {string} code - The claim code
  * @param {number} expiresAt - Timestamp when code expires
+ * @param {string} channelUrl - Public YouTube channel URL (drives discovery)
+ * @param {string} videoName - Human-readable video title users should look for
  *
  * @returns {Promise<boolean>} true if success, false otherwise
  */
-async function sendClaimCodeMessage(client, userId, gameCode, gameFullName, code, expiresAt) {
+async function sendClaimCodeMessage(client, userId, gameCode, gameFullName, code, expiresAt, channelUrl, videoName) {
   try {
     const user = await client.users.fetch(userId);
     const expiryTime = new Date(expiresAt).toLocaleTimeString();
 
     const embed = new EmbedBuilder()
       .setColor('#0099ff')
-      .setTitle('🎟️ Claim Code Generated')
+      .setTitle('Claim Code Generated')
       .setDescription(`Your code for **${gameFullName}** has been generated.`)
       .addFields(
         { name: 'Your Code', value: `\`\`\`${code}\`\`\``, inline: false },
         { name: 'Expires At', value: expiryTime, inline: true },
-        { name: 'Next Steps', value: '1. Comment on YouTube: `yourname:' + code + '`\n2. Run `/yt ' + gameCode + '` to claim reward', inline: false }
+        {
+          name: 'Next Steps',
+          // Link to the channel so users discover content; video title tells them exactly what to find
+          value: `1. Go to the [My Youtube Channel](${channelUrl}) and find the video **"${videoName}"**\n2. Comment: \`yourname:${code}\`\n3. Run \`/claim ${gameCode}\` to claim your reward`,
+          inline: false
+        }
       )
       .setFooter({ text: 'Keep this code safe and comment on YouTube before it expires!' });
 

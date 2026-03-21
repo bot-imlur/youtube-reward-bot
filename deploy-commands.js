@@ -14,31 +14,47 @@
 
 require('dotenv').config();
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
+const { COMMANDS } = require('./config/commands');
 
-const commands = [
-  new SlashCommandBuilder()
-    .setName('claim')
-    .setDescription('Generate code to claim your reward')
-    .addStringOption(option =>
-      option.setName('game')
-        .setDescription('Game name')
-        .setRequired(true)
-    ),
-  new SlashCommandBuilder()
-    .setName('yt')
-    .setDescription('Claim your reward after commenting on YouTube')
-    .addStringOption(option =>
-      option.setName('game')
-        .setDescription('Game name')
-        .setRequired(true)
-    )
-].map(cmd => cmd.toJSON());
+function applyOption(builder, optionConfig) {
+  if (optionConfig.type === 'string') {
+    return builder.addStringOption(option =>
+      option
+        .setName(optionConfig.name)
+        .setDescription(optionConfig.description)
+        .setRequired(optionConfig.required)
+    );
+  }
+
+  throw new Error(`Unsupported option type: ${optionConfig.type}`);
+}
+
+function buildCommand(commandConfig) {
+  let builder = new SlashCommandBuilder()
+    .setName(commandConfig.name)
+    .setDescription(commandConfig.description);
+
+  for (const optionConfig of Object.values(commandConfig.options || {})) {
+    builder = applyOption(builder, optionConfig);
+  }
+
+  return builder.toJSON();
+}
+
+const commands = Object.values(COMMANDS)
+  .filter(command => command.deploy)
+  .map(buildCommand);
+const deployableCommands = Object.values(COMMANDS).filter(command => command.deploy);
 
 const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
 
 (async () => {
   try {
     console.log('Registering commands...');
+    console.log(
+      `[Deploy] Commands from config (${deployableCommands.length}): ` +
+      deployableCommands.map(command => `/${command.name}`).join(', ')
+    );
 
     await rest.put(
       Routes.applicationGuildCommands(
@@ -49,6 +65,12 @@ const rest = new REST({ version: '10' }).setToken(process.env.BOT_TOKEN);
     );
 
     console.log('Commands registered successfully');
+    for (const command of deployableCommands) {
+      const optionNames = Object.values(command.options || {}).map(option => option.name);
+      console.log(
+        `[Deploy] /${command.name} | deploy=${command.deploy} | options=[${optionNames.join(', ')}]`
+      );
+    }
   } catch (error) {
     console.error(error);
   }

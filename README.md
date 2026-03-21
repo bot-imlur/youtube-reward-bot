@@ -4,10 +4,10 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
 
 ## What This System Does
 
-- Generates one-time claim codes through Discord (`/claim`).
+- Generates one-time claim codes through Discord (`/generate`).
 - Verifies user comments on game-specific YouTube videos.
 - Validates and consumes codes safely (single-use, expiry-aware, game-aware).
-- Delivers rewards through Discord DM (`/yt`).
+- Delivers rewards through Discord DM (`/claim`).
 - Persists state in JSON files with file-level locking for concurrency safety.
 
 ## High-Level Architecture
@@ -64,7 +64,7 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
 
 ## End-to-End Data Flow
 
-### Flow A: `/claim <game>`
+### Flow A: `/generate <game>`
 
 1. Discord interaction arrives in `index.js`.
 2. Global channel validation (`isGlobalChannelAllowed`) runs.
@@ -76,7 +76,7 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
 5. Code is sent via DM by `sendClaimCodeMessage`.
 6. Ephemeral success/error response is sent to channel.
 
-### Flow B: `/yt <game>`
+### Flow B: `/claim <game>`
 
 1. Discord interaction arrives in `index.js`.
 2. Channel + game validation runs.
@@ -162,7 +162,7 @@ Per-video comment processing store:
 ### Command and Orchestration
 
 - `index.js`
-  - Interaction router for `/claim` and `/yt`.
+  - Interaction router for `/generate` and `/claim`.
 
 ### Claim Code Lifecycle
 
@@ -176,7 +176,7 @@ Per-video comment processing store:
 ### YouTube Processing
 
 - `services/youtubeOnDemandRewardService.js`
-  - `processYouTubeRewardCommand(client, userId, game)` - `/yt` flow coordinator.
+  - `processYouTubeRewardCommand(client, userId, game)` - `/claim` flow coordinator.
 
 - `services/youtubeClaimProcessor.js`
   - `processComments(game)` - fetch/parse/validate/consume/store pipeline.
@@ -245,13 +245,13 @@ npm start
 
 ## Command Usage
 
-### `/claim game:<GAME_CODE>`
+### `/generate game:<GAME_CODE>`
 
 - Generates or returns an active claim code for that game.
 - Sends the code to DM.
 - If code is already used, user gets an error.
 
-### `/yt game:<GAME_CODE>`
+### `/claim game:<GAME_CODE>`
 
 - Verifies user comment from the mapped YouTube video.
 - Valid comment format: `username:CODE` (example: `Jai:ABC123`).
@@ -278,6 +278,9 @@ npm start
   - `BOT_TOKEN`
   - `CLIENT_ID`
   - `GUILD_ID`
+- If command names/options were changed in config, redeploy commands and restart the bot:
+  - `node deploy-commands.js`
+  - `npm start`
 
 ### `/claim` or `/yt` says channel not allowed
 
@@ -290,7 +293,7 @@ npm start
 - Ensure comment format is exactly `username:CODE`.
 - Ensure the code belongs to the same game/video.
 - Ensure code has not expired and is not already used.
-- Retry `/yt` after the comment is visible publicly on YouTube.
+- Retry `/claim` after the comment is visible publicly on YouTube.
 
 ### JSON storage issues
 
@@ -309,7 +312,7 @@ npm start
 
 - JSON file storage (no database).
 - Synchronous fs operations (adequate for low/moderate load).
-- YouTube processing is currently on-demand (`/yt`) rather than scheduled.
+- YouTube processing is currently on-demand (`/claim`) rather than scheduled.
 
 ## Security Notes
 
@@ -321,5 +324,5 @@ npm start
 
 - Storage is file-based JSON, not a database.
 - File operations are synchronous and can become a bottleneck at higher scale.
-- YouTube verification is on-demand (`/yt`), not scheduler-driven.
+- YouTube verification is on-demand (`/claim`), not scheduler-driven.
 - Test suite is script-based; no automated CI test harness yet.

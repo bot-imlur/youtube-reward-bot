@@ -1,0 +1,18 @@
+name            = "r2-download-worker"
+main            = "src/index.js"
+compatibility_date = "2024-09-23"
+
+# R2 bucket binding — Worker reads game files from this bucket
+[[r2_buckets]]
+binding     = "R2_BUCKET"
+bucket_name = "imlur-games"
+
+# Route: Worker handles /download path on files.imlur.com
+# All other paths on the domain fall through (404)
+[[routes]]
+pattern   = "files.imlur.com/download*"
+zone_name = "imlur.com"
+
+# WORKER_SECRET is NOT stored here — it is set via:
+#   npx wrangler secret put WORKER_SECRET
+# This keeps the secret out of version control.

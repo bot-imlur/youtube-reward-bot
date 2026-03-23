@@ -7,7 +7,8 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
 - Generates one-time claim codes through Discord (`/generate`).
 - Verifies user comments on game-specific YouTube videos.
 - Validates and consumes codes safely (single-use, expiry-aware, game-aware).
-- Delivers rewards through Discord DM (`/claim`).
+- Delivers rewards through Discord DM (`/claim`) as a **30-minute expiry download link** unique to each user.
+- Game files are hosted privately on **Cloudflare R2** and served through a **Cloudflare Worker** download gateway.
 - Persists state in JSON files with file-level locking for concurrency safety.
 
 ## High-Level Architecture
@@ -39,6 +40,7 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
 |   |-- claimRewardService.js
 |   |-- codeService.js
 |   |-- discordService.js
+|   |-- r2Service.js
 |   |-- youtubeClaimProcessor.js
 |   |-- youtubeCommentService.js
 |   `-- youtubeOnDemandRewardService.js
@@ -52,6 +54,10 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
 |   |-- logger.js
 |   |-- validationUtils.js
 |   `-- youtubeLookup.js
+|-- worker/                        ← Cloudflare Worker (download gateway)
+|   |-- src/
+|   |   `-- index.js
+|   `-- wrangler.toml
 |-- data/
 |   |-- codes.json
 |   `-- youtube/
@@ -90,7 +96,7 @@ A Discord bot that verifies YouTube comments and delivers game rewards through D
    - Parses `username:CODE` (`parseComment`).
    - Validates code (`validateCode`) and consumes (`consumeCode`) if valid.
    - Persists per-comment lifecycle (`saveComment`).
-5. On success, reward is DMed through `sendRewardMessage`.
+5. On success, a time-limited **R2 download URL** is generated via `r2Service.generateDownloadUrl` and DMed through `sendRewardMessage`.
 6. Ephemeral channel response confirms completion or reports reason.
 
 ## Design Principles
@@ -202,18 +208,38 @@ Per-video comment processing store:
 - `utils/validationUtils.js`
   - `normalizeGame`, `isSupportedGame`, `isGlobalChannelAllowed`, `getRewardForGame`.
 
+### Reward Delivery
+
+- `services/r2Service.js`
+  - `generateDownloadUrl(objectKey, userId, expirySeconds)` — generates an HMAC-authenticated, time-limited URL routed through the Cloudflare Worker.
+
+- `worker/src/index.js`
+  - Cloudflare Worker that validates the HMAC token and streams the game file from R2 to the user's browser.
+
 - `utils/commentParser.js`
   - `parseComment(text)` for `username:CODE`.
 
 ## Configuration
 
-Set environment variables in `.env`:
+Set environment variables in `.env` (see `.env.example` for the full list):
 
 ```env
-BOT_TOKEN=...
-CLIENT_ID=...
-GUILD_ID=...
-YOUTUBE_API_KEY=...
+# Discord
+BOT_TOKEN=
+CLIENT_ID=
+GUILD_ID=
+YOUTUBE_API_KEY=
+ADMIN_USER_ID=
+
+# Cloudflare R2
+R2_ACCOUNT_ID=
+R2_ACCESS_KEY_ID=
+R2_SECRET_ACCESS_KEY=
+R2_BUCKET_NAME=
+
+# Cloudflare Worker (download gateway)
+WORKER_SECRET=         # shared secret — also set via: npx wrangler secret put WORKER_SECRET
+WORKER_DOMAIN=files.imlur.com
 ```
 
 Optional:
@@ -221,6 +247,23 @@ Optional:
 ```env
 CODES_FILE_PATH=data/codes.json
 GLOBAL_ALLOWED_CHANNELS=1234567890,2345678901
+```
+
+### Cloudflare Worker Deployment
+
+The Worker in `worker/` must be deployed once to Cloudflare before rewards can be delivered:
+
+```bash
+cd worker
+npx wrangler login                          # one-time
+npx wrangler secret put WORKER_SECRET       # paste your WORKER_SECRET value
+npx wrangler deploy
+```
+
+To redeploy after changes:
+
+```bash
+npx wrangler deploy
 ```
 
 ## Usage
@@ -300,6 +343,32 @@ npm start
 - Confirm `data/codes.json` and `data/youtube/` are writable.
 - If a store file becomes malformed, back it up and reinitialize.
 
+## Infrastructure Costs (Cloudflare R2)
+
+R2 has a permanent free tier. The only real cost is storage beyond 10 GB.
+
+| Component | Free Tier | Overage |
+|---|---|---|
+| Storage | 10 GB / month | $0.015 / GB / month |
+| Downloads (Class B ops) | 10M / month | $0.36 / million |
+| Uploads (Class A ops) | 1M / month | $4.50 / million |
+| Egress (bandwidth) | Unlimited | **$0.00** |
+| Cloudflare Worker | 100K req / day | $5 / 10M requests |
+
+**Storage cost by number of games (assuming ~10 GB per game):**
+
+| Games | Total Storage | Monthly Cost |
+|---|---|---|
+| 1 | 10 GB | **$0.00** (free tier) |
+| 2 | 20 GB | **$0.15** |
+| 5 | 50 GB | **$0.60** |
+| 10 | 100 GB | **$1.35** |
+| 20 | 200 GB | **$2.85** |
+
+Formula: `(games × 10 − 10) × $0.015 = $/month`
+
+Downloads and Worker invocations are effectively free at any realistic Discord bot scale.
+
 ## Guarantees and Constraints
 
 ### Guarantees
@@ -318,6 +387,7 @@ npm start
 
 - Never commit real credentials or API keys.
 - Rotate secrets immediately if exposed.
+- `WORKER_SECRET` is the shared key between the bot and the Cloudflare Worker — rotate it via `npx wrangler secret put WORKER_SECRET` and update `.env` simultaneously.
 - Restrict command channels using `GLOBAL_ALLOWED_CHANNELS` and per-game `allowedChannelIds`.
 
 ## Known Limitations

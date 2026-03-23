@@ -95,7 +95,13 @@ const EVENTS = {
    * An admin used /admin-overwrite to forcibly issue a new code for a user.
    * Logs both the admin invoker and the target user for full auditability.
    */
-  ADMIN_CODE_OVERWRITE: "ADMIN_CODE_OVERWRITE"
+  ADMIN_CODE_OVERWRITE: "ADMIN_CODE_OVERWRITE",
+
+  /**
+   * A presigned R2 download URL was generated for a user as their reward.
+   * Logged for audit purposes — includes userId, objectKey, and expiry duration.
+   */
+  REWARD_SIGNED_URL_GENERATED: "REWARD_SIGNED_URL_GENERATED"
 };
 
 module.exports = {

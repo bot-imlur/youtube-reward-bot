@@ -31,7 +31,7 @@ const GLOBAL_ALLOWED_CHANNELS = process.env.GLOBAL_ALLOWED_CHANNELS
  * - fullName → Human-readable game name for messages
  * - videoId → Associated YouTube video ID (used for comment fetching)
  * - videoName → Human-readable video title shown in DM instructions
- * - reward → Reward key given after successful validation
+ * - reward → R2 object key for the game file (used to generate a signed download URL)
  * - gameImage → Path to game image file (shown in reward messages)
  * - allowedChannelIds → List of channels where this game is available (must be subset of GLOBAL_ALLOWED_CHANNELS)
  *                       Empty array = available in all global channels
@@ -43,7 +43,7 @@ const GAME_CONFIG = {
     fullName: "Grand Theft Auto: Vice City",
     videoId: "m0vT-8SA4tM",
     videoName: "GTA Vice City Definitive Edition",
-    reward: "MEGA_KEY_VC_123",
+    reward: "gta-vc/vlcsnap-2026-03-19-13h44m31s586.png",
     gameImage: "static/images/gta-vc.webp",
     allowedChannelIds: process.env.GTA_VC_ALLOWED_CHANNELS
       ? process.env.GTA_VC_ALLOWED_CHANNELS.split(',')

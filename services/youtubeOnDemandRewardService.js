@@ -26,6 +26,7 @@ const {
 } = require('../utils/youtubeLookup');
 const { processComments } = require('./youtubeClaimProcessor');
 const { getRewardForGame } = require('../utils/validationUtils');
+const { generateDownloadUrl } = require('./r2Service');
 const { isExpired } = require('../utils/expiryUtils');
 const { consumeCode } = require('./claimRewardService');
 const { replyToComment } = require('./youtubeCommentService');
@@ -60,6 +61,7 @@ async function checkAndConsumeValidatedCode(videoId, code, game) {
 
     if (consumeResult.success) {
       const reward = getRewardForGame(game);
+      const signedUrl = generateDownloadUrl(reward, codeData.validation.userId);
 
       logger.info(EVENTS.REWARD_SENT, {
         code,
@@ -80,7 +82,7 @@ async function checkAndConsumeValidatedCode(videoId, code, game) {
       return {
         found: true,
         consumed: true,
-        reward
+        reward: signedUrl
       };
     }
   }

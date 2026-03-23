@@ -47,10 +47,10 @@ function isSupportedGame(game, channelId = null) {
 }
 
 /**
- * Retrieves the reward associated with a given game.
+ * Retrieves the reward value associated with a given game.
  *
  * @param {string} game - Game name
- * @returns {string|null} Reward string if game exists, otherwise null
+ * @returns {string|null} Reward value if game exists, otherwise null
  */
 function getRewardForGame(game) {
   const normalized = game?.toUpperCase();

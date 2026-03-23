@@ -69,12 +69,12 @@ async function sendClaimCodeMessage(client, userId, gameCode, gameFullName, code
 }
 
 /**
- * Sends a formatted reward message with game key
+ * Sends a formatted reward message with a signed download link
  *
  * @param {Client} client - Discord client instance
  * @param {string} userId - Discord user ID
  * @param {string} gameFullName - Full game name (e.g., "Grand Theft Auto: Vice City")
- * @param {string} reward - Reward key/code
+ * @param {string} reward - Reward value for the user
  * @param {string} gameImagePath - Optional path to game image file
  *
  * @returns {Promise<boolean>} true if success, false otherwise
@@ -89,9 +89,13 @@ async function sendRewardMessage(client, userId, gameFullName, reward, gameImage
       .setDescription(`Congratulations! You've successfully validated your claim`)
       .addFields(
         { name: 'Game', value: gameFullName, inline: true },
-        { name: 'Reward Key', value: `\`\`\`${reward}\`\`\``, inline: false }
+        {
+          name: '📥 Download Your Game',
+          value: `[**Click here to download**](${reward})\n> ⏳ This link expires in **30 minutes**.`,
+          inline: false
+        }
       )
-      .setFooter({ text: 'Keep this key safe and enjoy your reward!' });
+      .setFooter({ text: '⚠️ This link is unique to you — do not share it.' });
 
     const sendOptions = { embeds: [embed] };
 

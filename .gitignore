@@ -6,5 +6,4 @@ logs/
 *.log
 .DS_Store
 signed-url.txt
-testurl.txt
-data/dev/
+data/

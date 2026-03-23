@@ -1,12 +1,4 @@
 {
-  "2IST7P": {
-    "userId": "637271722931781652",
-    "username": "Jarvis",
-    "game": "GTA-VC",
-    "used": false,
-    "adminOverwrite": false,
-    "createdAt": 1774115361165
-  },
   "2H8NBR": {
     "userId": "1483367944405778546",
     "username": "Bot Imlur",
@@ -14,5 +6,13 @@
     "used": true,
     "adminOverwrite": false,
     "createdAt": 1774124809206
+  },
+  "BNY5SC": {
+    "userId": "637271722931781652",
+    "username": "jarvis0391",
+    "game": "GTA-VC",
+    "used": true,
+    "adminOverwrite": true,
+    "createdAt": 1774284823767
   }
 }

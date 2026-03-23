@@ -6,9 +6,17 @@
 const CODE_EXPIRY_MS = 5 * 60 * 1000; // Validity window for a code
 const CODE_LENGTH = 6; // Length of generated codes
 
-// Relative path to the JSON storage file
-// Can be overridden via CODES_FILE_PATH environment variable for testing
-const CODES_FILE_PATH = process.env.CODES_FILE_PATH || 'data/codes.json';
+// Data directory — isolated per environment to prevent dev/prod data mixing
+// production → 'data'     (backward-compatible with existing Ubuntu deployment)
+// development → 'data/dev' (ephemeral, gitignored)
+const DATA_DIR = process.env.NODE_ENV === 'production' ? 'data' : 'data/dev';
+
+// Data file names
+const CODES_FILE_NAME = 'codes.json';
+
+// Resolved data paths (all data paths defined here, not scattered across utils)
+const CODES_FILE_PATH = process.env.CODES_FILE_PATH || `${DATA_DIR}/${CODES_FILE_NAME}`;
+const YOUTUBE_STORE_DIR = process.env.YOUTUBE_STORE_DIR || `${DATA_DIR}/youtube`;
 
 // Admin User ID restricted to command overwrites
 const ADMIN_USER_ID = process.env.ADMIN_USER_ID || null; // TODO: Provide your Discord user ID in .env
@@ -55,7 +63,10 @@ module.exports = {
   ADMIN_USER_ID,
   CODE_EXPIRY_MS,
   CODE_LENGTH,
+  DATA_DIR,
+  CODES_FILE_NAME,
   CODES_FILE_PATH,
+  YOUTUBE_STORE_DIR,
   GLOBAL_ALLOWED_CHANNELS,
   YOUTUBE_CHANNEL_URL,
   GAME_CONFIG

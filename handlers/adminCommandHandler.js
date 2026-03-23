@@ -20,6 +20,7 @@ const { normalizeGame } = require('../utils/validationUtils');
 const { createAdminOverwriteCode } = require('../services/codeService');
 const { consumeCode } = require('../services/claimRewardService');
 const { sendRewardMessage } = require('../services/discordService');
+const { generateDownloadUrl } = require('../services/r2Service');
 const { EVENTS } = require('../config/events');
 const logger = require('../utils/logger');
 
@@ -81,14 +82,15 @@ async function handleAdminOverwrite(client, interaction) {
     return;
   }
 
-  // Send reward DM to the target user
-  const reward = GAME_CONFIG[game].reward;
-  const dmSent = await sendRewardMessage(client, targetUserId, fullName, reward, gameImage);
+  // Generate a time-limited signed download URL for the target user
+  const rewardKey = GAME_CONFIG[game].reward;
+  const signedUrl = generateDownloadUrl(rewardKey, targetUserId);
+
+  const dmSent = await sendRewardMessage(client, targetUserId, fullName, signedUrl, gameImage);
 
   if (!dmSent) {
     await interaction.editReply(
-      `**Warning:** Code consumed for **${targetUser.username}** (${targetUserId}), but DM could not be delivered.\n` +
-      `Reward: \`${reward}\` — deliver manually if needed.`
+      `**Warning:** Code consumed for **${targetUser.username}** (${targetUserId}), but DM could not be delivered. Please deliver the reward manually.`
     );
     return;
   }

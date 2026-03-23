@@ -10,4 +10,5 @@ RUN npm ci --omit=dev
 COPY . .
 
 # data/ and logs/ are mounted as volumes — not baked in
-CMD ["node", "index.js"]
+# --prod flag sets NODE_ENV=production, loads .env, uses data/ directory
+CMD ["node", "index.js", "--prod"]

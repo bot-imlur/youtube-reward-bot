@@ -91,7 +91,7 @@ async function sendRewardMessage(client, userId, gameFullName, reward, gameImage
         { name: 'Game', value: gameFullName, inline: true },
         {
           name: '📥 Download Your Game',
-          value: `[**Click here to download**](${reward})\n> ⏳ This link expires in **30 minutes**.`,
+          value: `[Click here to download](${reward})\n⏳ This link expires in **30 minutes**.`,
           inline: false
         }
       )

@@ -14,7 +14,14 @@
  * User → Discord → index.js → codeService → response
  */
 
-require('dotenv').config();
+// Resolve environment before any module is loaded
+// --prod flag → production (.env), default → development (.env.development)
+const isProd = process.argv.includes('--prod');
+process.env.NODE_ENV = isProd ? 'production' : (process.env.NODE_ENV || 'development');
+
+const ENV_FILE = isProd ? '.env' : '.env.development';
+require('dotenv').config({ path: ENV_FILE });
+
 const { Client, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { routeInteraction } = require('./handlers/interactionRouter');
 
@@ -26,7 +33,13 @@ const client = new Client({
  * Triggered when bot successfully connects.
  */
 client.once('clientReady', async () => {
-  console.log(`Logged in as ${client.user.tag}`);
+  const mode    = isProd ? '🟢 PROD' : '🟡 DEV';
+  const divider = '─'.repeat(44);
+  console.log(`\n${divider}`);
+  console.log(`  ${mode}  ${client.user.tag}`);
+  console.log(`  Env  › ${ENV_FILE}`);
+  console.log(`  Data › ${require('./config/constants').DATA_DIR}/`);
+  console.log(`${divider}\n`);
 });
 
 /**

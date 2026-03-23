@@ -17,7 +17,9 @@ const path = require('path');
 const { readJsonFile, writeJsonFile } = require('./fileUtils');
 const { withLock } = require('./dataLock');
 
-const BASE_DIR = path.join(process.cwd(), 'data/youtube');
+const { YOUTUBE_STORE_DIR } = require('../config/constants');
+
+const BASE_DIR = path.join(process.cwd(), YOUTUBE_STORE_DIR);
 
 /**
  * Ensures base directory exists

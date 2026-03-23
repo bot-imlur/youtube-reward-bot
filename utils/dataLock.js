@@ -16,6 +16,8 @@
  */
 
 const lockfile = require('proper-lockfile');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Wraps a callback function with file locking mechanism.
@@ -27,6 +29,19 @@ const lockfile = require('proper-lockfile');
  * @throws {Error} - If lock acquisition fails
  */
 async function withLock(filePath, callback) {
+  // Ensure the file exists before attempting to lock it, as proper-lockfile requires an existing file.
+  if (!fs.existsSync(filePath)) {
+    try {
+      const dir = path.dirname(filePath);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      fs.writeFileSync(filePath, '{}', { flag: 'wx' });
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+    }
+  }
+
   let release;
   try {
     // Acquire lock on the file

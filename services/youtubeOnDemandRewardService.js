@@ -115,7 +115,7 @@ async function processYouTubeRewardCommand(client, userId, game) {
 
   // If NO code exists
   if (!userCode) {
-    const reason = `Please run /claim ${game} first to get a code, then use /yt after you've commented on the YouTube video.`;
+    const reason = `Please run /generate ${game} first to get a code, then use /yt after you've commented on the YouTube video.`;
     return {
       success: false,
       gameFullName: fullName,
@@ -137,7 +137,7 @@ async function processYouTubeRewardCommand(client, userId, game) {
 
   // If code expired
   if (isExpired(userCode.createdAt)) {
-    const reason = `Your code for ${fullName} has expired. Please run /claim ${game} again to get a new code.`;
+    const reason = `Your code for ${fullName} has expired. Please run /generate ${game} again to get a new code.`;
     return {
       success: false,
       gameFullName: fullName,
@@ -177,7 +177,7 @@ async function processYouTubeRewardCommand(client, userId, game) {
   const updatedCodeData = findCodeInCommentStore(videoId, userCode.code);
   const validationReason = updatedCodeData?.validation?.reason
     ? getHumanReadableReason(updatedCodeData.validation.reason)
-    : 'Your YouTube comment for this code was not found or failed validation';
+    : 'Your YouTube comment with code was not found or failed validation';
 
   const reason = `${validationReason}\n\nMake sure you commented on the video with format=> yourname:${userCode.code} E.g, Adarsh:XYP231`;
   return {

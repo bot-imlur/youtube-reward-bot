@@ -21,4 +21,8 @@ jobs:
           git checkout ${{ github.event.release.tag_name }}
           
           # 3. Rebuild and restart the container
-          docker compose up -d --build
+          if command -v docker-compose &> /dev/null; then
+            docker-compose up -d --build
+          else
+            docker compose up -d --build
+          fi

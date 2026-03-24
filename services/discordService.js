@@ -12,6 +12,7 @@
 
 const { EmbedBuilder, AttachmentBuilder } = require('discord.js');
 const path = require('path');
+const { DOWNLOAD_EXPIRY_SECONDS } = require('../config/constants');
 
 /**
  * Format an error message for ephemeral channel reply
@@ -82,6 +83,8 @@ async function sendClaimCodeMessage(client, userId, gameCode, gameFullName, code
 async function sendRewardMessage(client, userId, gameFullName, reward, gameImagePath = null) {
   try {
     const user = await client.users.fetch(userId);
+    const expiryMins = Math.floor(DOWNLOAD_EXPIRY_SECONDS / 60);
+    const timeText = expiryMins === 1 ? '1 minute' : `${expiryMins} minutes`;
 
     const embed = new EmbedBuilder()
       .setColor('#00ff00')
@@ -91,7 +94,7 @@ async function sendRewardMessage(client, userId, gameFullName, reward, gameImage
         { name: 'Game', value: gameFullName, inline: true },
         {
           name: '📥 Download Your Game',
-          value: `[Click here to download](${reward})\n⏳ This link expires in **30 minutes**.`,
+          value: `[Click here to download](${reward})\n⏳ This link expires in **${timeText}**.`,
           inline: false
         }
       )

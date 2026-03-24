@@ -21,8 +21,12 @@ jobs:
           git checkout ${{ github.event.release.tag_name }}
           
           # 3. Rebuild and restart the container
+          # Note: We run "down" first because older docker-compose (v1.29) has a known 
+          # bug (KeyError: 'ContainerConfig') when trying to recreate containers built with newer docker engines.
           if command -v docker-compose &> /dev/null; then
+            docker-compose down
             docker-compose up -d --build
           else
+            docker compose down
             docker compose up -d --build
           fi

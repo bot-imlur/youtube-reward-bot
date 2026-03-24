@@ -3,7 +3,7 @@
  * Changing values here affects the entire application.
  */
 
-const CODE_EXPIRY_MS = 5 * 60 * 1000; // Validity window for a code (5 mins * 60 secs * 1000 ms)
+const CODE_EXPIRY_MS = 60 * 60 * 1000; // Validity window for a code (60 mins * 60 secs * 1000 ms)
 const CODE_LENGTH = 6; // Length of generated codes
 
 // Data directory — isolated per environment to prevent dev/prod data mixing
@@ -59,7 +59,7 @@ const GAME_CONFIG = {
   }
 };
 
-const DOWNLOAD_EXPIRY_SECONDS = 30 * 60; // 30 minutes (30 mins * 60 secs)
+const DOWNLOAD_EXPIRY_SECONDS = 1 * 60; // 1 minute (1 min * 60 secs)
 
 module.exports = {
   ADMIN_USER_ID,

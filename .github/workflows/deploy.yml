@@ -1,0 +1,24 @@
+name: Deploy to Local Ubuntu Server
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  deploy:
+    # Requires a self-hosted runner installed on your Ubuntu server.
+    runs-on: self-hosted
+
+    steps:
+      - name: Pull Release and Rebuild Docker Container
+        run: |
+          # 1. Navigate to the bot's repository directory on your Ubuntu server
+          # Note: Change this path if you cloned it somewhere else (e.g., /opt/youtube-reward-bot)
+          cd ~/github-repo/youtube-reward-bot
+          
+          # 2. Fetch the latest tags and checkout the release tag
+          git fetch --all --tags
+          git checkout ${{ github.event.release.tag_name }}
+          
+          # 3. Rebuild and restart the container
+          docker compose up -d --build

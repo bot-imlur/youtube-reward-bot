@@ -3,7 +3,7 @@
  * Changing values here affects the entire application.
  */
 
-const CODE_EXPIRY_MS = 5 * 60 * 1000; // Validity window for a code
+const CODE_EXPIRY_MS = 5 * 60 * 1000; // Validity window for a code (5 mins * 60 secs * 1000 ms)
 const CODE_LENGTH = 6; // Length of generated codes
 
 // Data directory — isolated per environment to prevent dev/prod data mixing
@@ -51,13 +51,15 @@ const GAME_CONFIG = {
     fullName: "Grand Theft Auto: Vice City",
     videoId: "m0vT-8SA4tM",
     videoName: "GTA Vice City Definitive Edition",
-    reward: "gta-vc/vlcsnap-2026-03-19-13h44m31s586.png",
+    reward: "gta-vc/reward.rar",
     gameImage: "static/images/gta-vc.webp",
     allowedChannelIds: process.env.GTA_VC_ALLOWED_CHANNELS
       ? process.env.GTA_VC_ALLOWED_CHANNELS.split(',')
       : [] // Must be subset of GLOBAL_ALLOWED_CHANNELS
   }
 };
+
+const DOWNLOAD_EXPIRY_SECONDS = 30 * 60; // 30 minutes (30 mins * 60 secs)
 
 module.exports = {
   ADMIN_USER_ID,
@@ -69,5 +71,6 @@ module.exports = {
   YOUTUBE_STORE_DIR,
   GLOBAL_ALLOWED_CHANNELS,
   YOUTUBE_CHANNEL_URL,
-  GAME_CONFIG
+  GAME_CONFIG,
+  DOWNLOAD_EXPIRY_SECONDS
 };

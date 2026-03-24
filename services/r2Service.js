@@ -20,8 +20,7 @@
 const crypto = require('crypto');
 const logger = require('../utils/logger');
 const { EVENTS } = require('../config/events');
-
-const DOWNLOAD_EXPIRY_SECONDS = 1800; // 30 minutes
+const { DOWNLOAD_EXPIRY_SECONDS } = require('../config/constants');
 
 /**
  * Generates a time-limited HMAC-authenticated download URL for a private R2 object.

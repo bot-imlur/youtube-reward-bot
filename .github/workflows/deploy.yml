@@ -16,8 +16,8 @@ jobs:
           # Note: Change this path if you cloned it somewhere else (e.g., /opt/youtube-reward-bot)
           cd ~/github-repo/youtube-reward-bot
           
-          # 2. Fetch the latest tags and checkout the release tag
-          git fetch --all --tags
+          # 2. Fetch the latest tags and checkout the release tag (force to override any clobbered tags)
+          git fetch --all --tags --force
           git checkout ${{ github.event.release.tag_name }}
           
           # 3. Rebuild and restart the container

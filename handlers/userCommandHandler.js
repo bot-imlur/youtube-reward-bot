@@ -33,6 +33,8 @@ async function handleGenerate(client, interaction) {
   const game = await getValidatedGameOrReply(interaction, COMMANDS.GENERATE);
   if (!game) return;
 
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
   const result = await codeService.createCode(
     interaction.user.id,
     interaction.member?.displayName || interaction.user.username,
@@ -41,9 +43,8 @@ async function handleGenerate(client, interaction) {
 
   const { fullName, videoName } = GAME_CONFIG[game];
   if (result.status === STATUS.ALREADY_USED) {
-    await interaction.reply({
-      content: formatErrorReply(fullName, `You have already claimed the reward for this game`),
-      flags: MessageFlags.Ephemeral
+    await interaction.editReply({
+      content: formatErrorReply(fullName, `You have already claimed the reward for this game`)
     });
     return;
   }
@@ -59,9 +60,8 @@ async function handleGenerate(client, interaction) {
     videoName
   );
 
-  await interaction.reply({
-    content: `✅ Check your DMs for your code!`,
-    flags: MessageFlags.Ephemeral
+  await interaction.editReply({
+    content: `✅ Check your DMs for your code!`
   });
 }
 

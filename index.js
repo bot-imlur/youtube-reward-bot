@@ -59,23 +59,27 @@ client.on('interactionCreate', async interaction => {
   } catch (err) {
     console.error('ERROR in interaction router:', err);
 
-    if (interaction.deferred) {
-      await interaction.editReply({ content: 'Something went wrong. Try again later.' });
-      return;
-    }
+    try {
+      if (interaction.deferred) {
+        await interaction.editReply({ content: 'Something went wrong. Try again later.' });
+        return;
+      }
 
-    if (interaction.replied) {
-      await interaction.followUp({
+      if (interaction.replied) {
+        await interaction.followUp({
+          content: 'Something went wrong. Try again later.',
+          flags: MessageFlags.Ephemeral
+        });
+        return;
+      }
+
+      await interaction.reply({
         content: 'Something went wrong. Try again later.',
         flags: MessageFlags.Ephemeral
       });
-      return;
+    } catch (fallbackErr) {
+      console.error('Failed to send fallback error message (interaction probably expired):', fallbackErr.message);
     }
-
-    await interaction.reply({
-      content: 'Something went wrong. Try again later.',
-      flags: MessageFlags.Ephemeral
-    });
   }
 });
 

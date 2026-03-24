@@ -59,7 +59,7 @@ const GAME_CONFIG = {
   }
 };
 
-const DOWNLOAD_EXPIRY_SECONDS = 1 * 60; // 1 minute (1 min * 60 secs)
+const DOWNLOAD_EXPIRY_SECONDS = 2 * 60; // 2 minutes (2 min * 60 secs)
 
 module.exports = {
   ADMIN_USER_ID,

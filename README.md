@@ -266,6 +266,28 @@ To redeploy after changes:
 npx wrangler deploy
 ```
 
+## Continuous Deployment (CD)
+
+This project includes a **GitHub Actions auto-deployment workflow** (`.github/workflows/deploy.yml`) designed to run on a local Ubuntu server via a self-hosted runner.
+
+### How it works
+1. Whenever a new **GitHub Release** is published, the workflow triggers.
+2. The self-hosted runner fetches the new release tag and code.
+3. The runner writes the release version to a `.version` file.
+4. The deployment script gracefully tears down the old Docker container and rebuilds it.
+5. The bot spins up, reads the `.version` file, and logs the running version in the terminal.
+
+### Setting up the CD Runner
+1. On your Ubuntu server, go to your GitHub repository -> **Settings** -> **Actions** -> **Runners**.
+2. Click **New self-hosted runner** (Select Linux, x64).
+3. Run the provided installation commands in your bot's folder (e.g., `~/github-repo/youtube-reward-bot`).
+4. Install the runner as a background service so it survives server reboots:
+   ```bash
+   sudo ./svc.sh install
+   sudo ./svc.sh start
+   ```
+5. From now on, simply **Draft a new release** on GitHub to automatically deploy your latest code!
+
 ## Usage
 
 ### 1) Install Dependencies

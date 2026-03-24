@@ -33,10 +33,17 @@ const client = new Client({
  * Triggered when bot successfully connects.
  */
 client.once('clientReady', async () => {
+  const fs = require('fs');
+  let version = 'local';
+  try {
+    version = fs.readFileSync('.version', 'utf8').trim();
+  } catch (e) {}
+
   const mode    = isProd ? '🟢 PROD' : '🟡 DEV';
   const divider = '─'.repeat(44);
   console.log(`\n${divider}`);
   console.log(`  ${mode}  ${client.user.tag}`);
+  console.log(`  Ver  › ${version}`);
   console.log(`  Env  › ${ENV_FILE}`);
   console.log(`  Data › ${require('./config/constants').DATA_DIR}/`);
   console.log(`${divider}\n`);

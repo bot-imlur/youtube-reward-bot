@@ -20,6 +20,9 @@ jobs:
           git fetch --all --tags --force
           git checkout ${{ github.event.release.tag_name }}
           
+          # Write the version explicitly for the Node server log
+          echo "${{ github.event.release.tag_name }}" > .version
+          
           # 3. Rebuild and restart the container
           # Note: We run "down" first because older docker-compose (v1.29) has a known 
           # bug (KeyError: 'ContainerConfig') when trying to recreate containers built with newer docker engines.

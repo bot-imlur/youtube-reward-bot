@@ -19,7 +19,7 @@
  *   node scripts/readCodes.js --game GTA-VC --used false --expired false
  */
 
-require('dotenv').config();
+require('../config/env');
 const path = require('path');
 const { getCodesReader } = require('../utils/codeReader');
 const { isExpired } = require('../utils/expiryUtils');

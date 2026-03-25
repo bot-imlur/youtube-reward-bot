@@ -27,7 +27,7 @@
  * - This script only needs to be run once. Re-run only if the token is revoked.
  */
 
-require('dotenv').config();
+require('../config/env');
 
 const { google } = require('googleapis');
 const readline = require('readline');

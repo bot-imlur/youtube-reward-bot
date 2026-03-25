@@ -1,4 +1,4 @@
-require('dotenv').config();
+require('../config/env');
 
 const { fetchComments } = require('../services/youtubeCommentService');
 

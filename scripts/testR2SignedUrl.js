@@ -15,7 +15,7 @@
  * 4. Wait 1 minute → paste again → should return "This download link has expired"
  */
 
-require('dotenv').config();
+require('../config/env');
 const fs = require('fs');
 const { generateDownloadUrl } = require('../services/r2Service');
 const { GAME_CONFIG } = require('../config/constants');

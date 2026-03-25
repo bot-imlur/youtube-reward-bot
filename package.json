@@ -7,6 +7,9 @@
     "dev": "node index.js",
     "prod": "node index.js --prod",
     "read-codes": "node scripts/readCodes.js",
+    "read-codes-prod": "node scripts/readCodes.js --prod",
+    "read-logs": "node scripts/readLogs.js",
+    "read-logs-prod": "node scripts/readLogs.js --prod",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],

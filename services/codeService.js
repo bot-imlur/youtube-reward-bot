@@ -117,7 +117,7 @@ async function createCode(userId, username, game) {
 
     if (existing) {
       const [existingCode, existingData] = existing;
-      
+
       // Terminal state: code already used → block new generation
       if (existingData.used) {
         logger.warn(EVENTS.CODE_USED_NO_GENERATION, {

@@ -308,6 +308,38 @@ node deploy-commands.js
 npm start
 ```
 
+## Onboarding a New Game
+
+Adding a new game to the bot is entirely configuration-driven. Follow these precise steps:
+
+**1. Upload the Reward to Cloudflare R2**
+Upload your game download file (e.g., `Spiderman-ZIP.zip`) to your Cloudflare R2 bucket. Save the exact filename, as this will be your `reward` key.
+
+**2. Publish your YouTube Video**
+Upload the respective YouTube video outlining how to get the game, and grab the 11-character YouTube `videoId` from the URL.
+
+**3. Update `config/constants.js`**
+Open `config/constants.js` and add a new block to the `GAME_CONFIG` dictionary. 
+Use a short, uppercase key (e.g., `SPIDERMAN`) representing your game.
+```javascript
+const GAME_CONFIG = {
+  "GTA-VC": { ... },
+  "SPIDERMAN": { 
+    fullName: "Spider-Man Remastered",
+    videoName: "Spider-Man Unlock Guide",
+    videoId: "YOUR_11_CHAR_YOUTUBE_ID",
+    reward: "Spiderman-ZIP.zip", 
+    allowedChannelIds: ["123456789012345678"], // Specific text channels allowed for this game
+    gameImage: "https://your-image-host.com/spiderman.jpg" // Optional thumbnail for DM
+  }
+};
+```
+
+**4. Deploy and Restart**
+Commit your changes, push to GitHub, and let the CD pipeline restart the bot. (Because the `/claim` command asks for a generic text string, you **do not** need to re-run `deploy-commands.js`). 
+
+Users can immediately start using `/generate game:SPIDERMAN`!
+
 ## Command Usage
 
 ### `/generate game:<GAME_CODE>`

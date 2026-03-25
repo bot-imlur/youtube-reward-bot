@@ -96,8 +96,8 @@ function formatLog(log) {
     Time: new Date(log.timestamp).toLocaleString(),
     Level: log.level,
     Event: log.event,
-    UserId: log.userId || '-',
-    Username: log.username || '-',
+    UserId: log.userId || log.targetUserId || '-',
+    Username: log.username || log.targetUsername || '-',
     Code: log.code || '-',
     Game: log.game || log.gameAttempted || '-'
   };

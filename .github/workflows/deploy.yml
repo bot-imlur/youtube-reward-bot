@@ -33,3 +33,6 @@ jobs:
             docker compose down
             docker compose up -d --build
           fi
+
+          # 4. Automatically push any new slash commands to Discord
+          docker exec youtube-reward-bot node deploy-commands.js --prod

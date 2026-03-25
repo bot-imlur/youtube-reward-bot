@@ -16,11 +16,7 @@
 
 // Resolve environment before any module is loaded
 // --prod flag → production (.env), default → development (.env.development)
-const isProd = process.argv.includes('--prod');
-process.env.NODE_ENV = isProd ? 'production' : (process.env.NODE_ENV || 'development');
-
-const ENV_FILE = isProd ? '.env' : '.env.development';
-require('dotenv').config({ path: ENV_FILE });
+const { isProd, ENV_FILE } = require('./config/env');
 
 const { Client, GatewayIntentBits, MessageFlags } = require('discord.js');
 const { routeInteraction } = require('./handlers/interactionRouter');

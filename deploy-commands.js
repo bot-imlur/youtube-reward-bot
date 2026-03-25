@@ -12,7 +12,7 @@
  * - /claim (requires "game" string input)
  */
 
-require('dotenv').config();
+require('./config/env');
 const { REST, Routes, SlashCommandBuilder } = require('discord.js');
 const { COMMANDS } = require('./config/commands');
 

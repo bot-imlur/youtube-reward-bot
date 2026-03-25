@@ -342,17 +342,39 @@ Users can immediately start using `/generate game:SPIDERMAN`!
 
 ## Command Usage
 
-### `/generate game:<GAME_CODE>`
+### User Commands
 
+#### `/generate game:<GAME_CODE>`
 - Generates or returns an active claim code for that game.
-- Sends the code to DM.
+- Sends the code via DM.
 - If code is already used, user gets an error.
 
-### `/claim game:<GAME_CODE>`
-
+#### `/claim game:<GAME_CODE>`
 - Verifies user comment from the mapped YouTube video.
 - Valid comment format: `username:CODE` (example: `Jai:ABC123`).
-- If valid and unconsumed, reward is sent by DM.
+- If valid and unconsumed, reward download link is sent by DM.
+
+### Admin Commands
+*(Restricted to `ADMIN_USER_ID` configured in `.env`)*
+
+#### `/admin-overwrite user_id:<ID> game:<GAME_CODE>`
+- Native override to forcibly generate an active claim code for a specific user.
+- Automatically invalidates any previous unconsumed codes for that game.
+- Delivers the new code via DM.
+
+#### `/admin-reward user-id:<ID> game:<GAME_CODE>`
+- Secure override to instantly deliver a final game download link.
+- Automatically generates and instantly consumes a fresh code, entirely bypassing YouTube verification.
+- Delivers the download link via DM.
+
+#### `/admin-get-codes [game:<GAME_CODE>]`
+- Pulls a categorized, tabular report of all active and historical claim codes.
+- Sorts newest first and displays exact usage payload.
+- Automatically paginates to a text file attachment if the table exceeds Discord's chat limits.
+
+#### `/admin-get-games [game:<GAME_CODE>]`
+- Fetches the live runtime configuration dictionary for your games.
+- Displays dynamic metadata like active YouTube IDs, Cloudflare reward keys, enable statuses, and text channel restrictions.
 
 ## Logging and Operations
 

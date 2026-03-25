@@ -14,12 +14,12 @@
  */
 
 const { MessageFlags } = require('discord.js');
-const { ADMIN_USER_ID, GAME_CONFIG } = require('../config/constants');
+const { ADMIN_USER_ID, GAME_CONFIG, YOUTUBE_CHANNEL_URL } = require('../config/constants');
 const { COMMANDS } = require('../config/commands');
 const { normalizeGame } = require('../utils/validationUtils');
 const { createAdminOverwriteCode } = require('../services/codeService');
 const { consumeCode } = require('../services/claimRewardService');
-const { sendRewardMessage } = require('../services/discordService');
+const { sendRewardMessage, sendClaimCodeMessage } = require('../services/discordService');
 const { generateDownloadUrl } = require('../services/r2Service');
 const { EVENTS } = require('../config/events');
 const logger = require('../utils/logger');
@@ -38,6 +38,71 @@ function isAdmin(invokerId) {
  * Handles the /admin-overwrite command.
  *
  * Flow:
+ * 1. Resolve target user from Discord.
+ * 2. Validate game parameter.
+ * 3. Create a fresh code for the target user (invalidating old ones).
+ * 4. Send the new claim code to the target user via DM.
+ * 5. Reply to admin with success.
+ *
+ * @param {Client} client      - Discord client instance
+ * @param {Interaction} interaction - Discord slash command interaction
+ */
+async function handleAdminOverwrite(client, interaction) {
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+  const targetUserId = interaction.options.getString(COMMANDS.ADMIN_OVERWRITE.options.USER_ID.name);
+  const gameInput = interaction.options.getString(COMMANDS.ADMIN_OVERWRITE.options.GAME.name);
+
+  const game = normalizeGame(gameInput);
+  if (!game) {
+    await interaction.editReply(`**Error:** Unknown or unsupported game: \`${gameInput}\``);
+    return;
+  }
+
+  const { fullName, videoName } = GAME_CONFIG[game];
+
+  let targetUser;
+  try {
+    targetUser = await client.users.fetch(targetUserId);
+  } catch {
+    await interaction.editReply(`**Error:** Could not resolve Discord user with ID \`${targetUserId}\`. Ensure the ID is correct.`);
+    return;
+  }
+
+  const { code, expiresAt } = await createAdminOverwriteCode(targetUserId, targetUser.username, game);
+
+  const dmSent = await sendClaimCodeMessage(
+    client,
+    targetUserId,
+    game,
+    fullName,
+    code,
+    expiresAt,
+    YOUTUBE_CHANNEL_URL,
+    videoName
+  );
+
+  if (!dmSent) {
+    await interaction.editReply(`**Warning:** Code force-generated for **${targetUser.username}**, but DM could not be delivered.`);
+    return;
+  }
+
+  logger.info(EVENTS.ADMIN_CODE_OVERWRITE, {
+    adminUserId: interaction.user.id,
+    targetUserId,
+    targetUsername: targetUser.username,
+    code,
+    game,
+    dmDelivered: dmSent
+  });
+
+  await interaction.editReply(`✅ Fresh claim code (\`${code}\`) delivered to **${targetUser.username}** (${targetUserId}) for **${fullName}**.`);
+}
+
+/**
+ * Handles the /admin-reward command.
+ *
+ * Flow:
  * 1. Resolve target user from Discord (fails fast if user ID is invalid).
  * 2. Validate game parameter.
  * 3. Create a fresh admin-overwrite code for the target user + game.
@@ -48,11 +113,11 @@ function isAdmin(invokerId) {
  * @param {Client} client      - Discord client instance
  * @param {Interaction} interaction - Discord slash command interaction
  */
-async function handleAdminOverwrite(client, interaction) {
+async function handleAdminReward(client, interaction) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
 
-  const targetUserId = interaction.options.getString(COMMANDS.ADMIN_OVERWRITE.options.USER_ID.name);
-  const gameInput = interaction.options.getString(COMMANDS.ADMIN_OVERWRITE.options.GAME.name);
+  const targetUserId = interaction.options.getString(COMMANDS.ADMIN_REWARD.options.USER_ID.name);
+  const gameInput = interaction.options.getString(COMMANDS.ADMIN_REWARD.options.GAME.name);
 
   // Validate game
   const game = normalizeGame(gameInput);
@@ -95,7 +160,7 @@ async function handleAdminOverwrite(client, interaction) {
     return;
   }
 
-  logger.info(EVENTS.ADMIN_CODE_OVERWRITE, {
+  logger.info(EVENTS.ADMIN_REWARD_DELIVERED, {
     adminUserId: interaction.user.id,
     targetUserId,
     targetUsername: targetUser.username,
@@ -128,6 +193,11 @@ async function handleAdminCommand(client, interaction) {
 
   if (interaction.commandName === COMMANDS.ADMIN_OVERWRITE.name) {
     await handleAdminOverwrite(client, interaction);
+    return;
+  }
+
+  if (interaction.commandName === COMMANDS.ADMIN_REWARD.name) {
+    await handleAdminReward(client, interaction);
     return;
   }
 

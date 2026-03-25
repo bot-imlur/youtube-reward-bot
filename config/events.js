@@ -98,6 +98,12 @@ const EVENTS = {
   ADMIN_CODE_OVERWRITE: "ADMIN_CODE_OVERWRITE",
 
   /**
+   * An admin used /admin-reward to forcibly bypass criteria and deliver the download URL directly.
+   * Logs both the admin invoker and the target user for full auditability.
+   */
+  ADMIN_REWARD_DELIVERED: "ADMIN_REWARD_DELIVERED",
+
+  /**
    * A presigned R2 download URL was generated for a user as their reward.
    * Logged for audit purposes — includes userId, objectKey, and expiry duration.
    */

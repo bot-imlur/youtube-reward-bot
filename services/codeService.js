@@ -216,11 +216,13 @@ async function createAdminOverwriteCode(userId, username, game) {
     // Generate a unique code (avoid collisions with existing codes)
     const newCode = generateUniqueCode(codes);
 
-    persistNewCode(codes, newCode, userId, username, game, true);
+    const createdAt = persistNewCode(codes, newCode, userId, username, game, true);
+    const expiresAt = createdAt + CODE_EXPIRY_MS;
 
     return {
       code: newCode,
-      status: STATUS.NEW
+      status: STATUS.NEW,
+      expiresAt
     };
   });
 }

@@ -79,10 +79,28 @@ function getCodesReader(filePath) {
     return getAll().filter(entry => entry.userId === userId);
   }
 
+  /**
+   * Groups an array of normalized code entries by game.
+   *
+   * @param {Array<object>} entries - Array of code entries
+   * @returns {object} Object keyed by game name containing arrays of entries
+   */
+  function groupByGame(entries) {
+    const grouped = {};
+    for (const entry of entries) {
+      if (!grouped[entry.game]) {
+        grouped[entry.game] = [];
+      }
+      grouped[entry.game].push(entry);
+    }
+    return grouped;
+  }
+
   return {
     getAll,
     findByCode,
-    findByUser
+    findByUser,
+    groupByGame
   };
 }
 

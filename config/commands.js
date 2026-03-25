@@ -30,7 +30,7 @@ const COMMANDS = {
    */
   ADMIN_OVERWRITE: {
     name: 'admin-overwrite',
-    description: 'Admin override to forcibly generate a new claim code for a user',
+    description: '(Admin Only)  Override to forcibly generate a new claim code for a user',
     deploy: true,
     options: {
       USER_ID: {
@@ -53,19 +53,45 @@ const COMMANDS = {
    */
   ADMIN_REWARD: {
     name: 'admin-reward',
-    description: 'Admin override to directly deliver reward to a user skipping criteria',
+    description: '(Admin Only) Native override to directly DM the reward to user',
     deploy: true,
     options: {
       USER_ID: {
-        name: 'user_id',
-        description: 'Target Discord user ID',
+        name: 'user-id',
+        description: 'The Discord ID of the user to receive the reward',
         required: true,
         type: 'string'
       },
       GAME: {
         name: 'game',
-        description: 'Game name',
+        description: 'The game code (e.g. GTA-VC)',
         required: true,
+        type: 'string'
+      }
+    }
+  },
+  ADMIN_GET_CODES: {
+    name: 'admin-get-codes',
+    description: '(Admin Only) View a tabular list of generated codes and their current status',
+    deploy: true,
+    options: {
+      GAME: {
+        name: 'game',
+        description: 'Optional game code to filter by (e.g. GTA-VC)',
+        required: false,
+        type: 'string'
+      }
+    }
+  },
+  ADMIN_GET_GAMES: {
+    name: 'admin-get-games',
+    description: '(Admin Only) View metadata and configuration for supported games',
+    deploy: true,
+    options: {
+      GAME: {
+        name: 'game',
+        description: 'Optional game code to filter by (e.g. GTA-VC)',
+        required: false,
         type: 'string'
       }
     }

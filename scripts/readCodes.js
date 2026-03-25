@@ -77,7 +77,6 @@ function formatRow(entry) {
   return {
     Code: entry.code,
     UserId: entry.userId,
-    Game: entry.game,
     Username: entry.username || '-',
     Used: entry.used,
     Expired: isExpired(entry.createdAt),
@@ -87,17 +86,23 @@ function formatRow(entry) {
 }
 
 /**
- * Prints rows in tabular format, or a message if empty.
+ * Prints rows in tabular format, grouped by game, or a message if empty.
  *
  * @param {object[]} rows
+ * @param {object} reader - Code reader instance for helper methods
  */
-function printTable(rows) {
+function printTable(rows, reader) {
   if (!rows.length) {
     console.log('No records found matching the specified filters.');
     return;
   }
 
-  console.table(rows.map(formatRow));
+  const grouped = reader.groupByGame(rows);
+
+  for (const [gameName, gameCodes] of Object.entries(grouped)) {
+    console.log(`\n======== GAME: ${gameName} ========`);
+    console.table(gameCodes.map(formatRow));
+  }
 }
 
 /**
@@ -109,9 +114,9 @@ function printTable(rows) {
  * @returns {object[]} Filtered entries
  */
 function applyFilters(entries) {
-  const gameFilter          = getArg('--game');
-  const usedFilter          = getBoolArg('--used');
-  const expiredFilter       = getBoolArg('--expired');
+  const gameFilter = getArg('--game');
+  const usedFilter = getBoolArg('--used');
+  const expiredFilter = getBoolArg('--expired');
   const adminOverwriteFilter = getBoolArg('--admin-overwrite');
 
   return entries.filter(entry => {
@@ -139,19 +144,19 @@ function main() {
   // Exact lookup by code (fast path — no further filtering applied)
   if (codeArg) {
     const result = reader.findByCode(codeArg);
-    printTable(result ? [result] : []);
+    printTable(result ? [result] : [], reader);
     return;
   }
 
   // Exact lookup by user, then apply remaining filters
   if (userArg) {
     const results = reader.findByUser(userArg);
-    printTable(applyFilters(results));
+    printTable(applyFilters(results), reader);
     return;
   }
 
   // Default: all entries through the filter pipeline
-  printTable(applyFilters(reader.getAll()));
+  printTable(applyFilters(reader.getAll()), reader);
 }
 
 main();

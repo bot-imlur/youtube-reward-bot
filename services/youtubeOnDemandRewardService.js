@@ -42,9 +42,10 @@ const logger = require('../utils/logger');
  * @param {string} videoId
  * @param {string} code
  * @param {string} game
+ * @param {string} username
  * @returns {Promise<{found: boolean, consumed: boolean, reward?: string, reason?: string}>}
  */
-async function checkAndConsumeValidatedCode(videoId, code, game) {
+async function checkAndConsumeValidatedCode(videoId, code, game, username) {
   const codeData = findCodeInCommentStore(videoId, code);
 
   if (!codeData) {
@@ -61,7 +62,7 @@ async function checkAndConsumeValidatedCode(videoId, code, game) {
 
     if (consumeResult.success) {
       const reward = getRewardForGame(game);
-      const signedUrl = generateDownloadUrl(reward, codeData.validation.userId);
+      const signedUrl = generateDownloadUrl(reward, codeData.validation.userId, username);
 
       logger.info(EVENTS.REWARD_SENT, {
         code,
@@ -147,7 +148,7 @@ async function processYouTubeRewardCommand(client, userId, game) {
   }
 
   // Step 2: Code is valid - check YouTube comment store and consume if found
-  let result = await checkAndConsumeValidatedCode(videoId, userCode.code, game);
+  let result = await checkAndConsumeValidatedCode(videoId, userCode.code, game, userCode.username);
   if (result.consumed) {
     return {
       success: true,
@@ -163,7 +164,7 @@ async function processYouTubeRewardCommand(client, userId, game) {
   await processComments(game);
 
   // Step 4: Recheck the store now that new comments have been processed
-  result = await checkAndConsumeValidatedCode(videoId, userCode.code, game);
+  result = await checkAndConsumeValidatedCode(videoId, userCode.code, game, userCode.username);
   if (result.consumed) {
     return {
       success: true,

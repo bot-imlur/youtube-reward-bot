@@ -171,7 +171,7 @@ async function handleAdminReward(client, interaction) {
 
   // Generate a time-limited signed download URL for the target user
   const rewardKey = GAME_CONFIG[game].reward;
-  const signedUrl = generateDownloadUrl(rewardKey, targetUserId);
+  const signedUrl = generateDownloadUrl(rewardKey, targetUserId, targetUser.username);
 
   const dmSent = await sendRewardMessage(client, targetUserId, fullName, signedUrl, gameImage);
 

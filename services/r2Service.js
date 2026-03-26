@@ -29,11 +29,12 @@ const { DOWNLOAD_EXPIRY_SECONDS } = require('../config/constants');
  *
  * @param {string} objectKey     - R2 object key (e.g. "gta-vc/GTA_ViceCity_Setup.zip")
  * @param {string} userId        - Discord user ID (used only for audit logging)
+ * @param {string} username      - Discord username (used only for audit logging)
  * @param {number} [expirySeconds] - Override default expiry (optional)
  *
  * @returns {string} Authenticated download URL valid for expirySeconds
  */
-function generateDownloadUrl(objectKey, userId, expirySeconds = DOWNLOAD_EXPIRY_SECONDS) {
+function generateDownloadUrl(objectKey, userId, username, expirySeconds = DOWNLOAD_EXPIRY_SECONDS) {
   const workerSecret = process.env.WORKER_SECRET;
   const workerDomain = process.env.WORKER_DOMAIN || 'files.imlur.com';
 
@@ -55,6 +56,7 @@ function generateDownloadUrl(objectKey, userId, expirySeconds = DOWNLOAD_EXPIRY_
 
   logger.info(EVENTS.REWARD_SIGNED_URL_GENERATED, {
     userId,
+    username,
     objectKey,
     expirySeconds
   });

@@ -32,7 +32,7 @@ console.log('[Test] Generating download URL...');
 console.log(`[Test] Object key: ${testObjectKey}`);
 
 try {
-  const url = generateDownloadUrl(testObjectKey, 'test-user-123'); // 30 minutes (production default)
+  const url = generateDownloadUrl(testObjectKey, 'test-user-123', 'TestUser'); // 30 minutes (production default)
 
   fs.writeFileSync('signed-url.txt', url, 'utf8');
   console.log('\n✅ Download URL written to: signed-url.txt\n');

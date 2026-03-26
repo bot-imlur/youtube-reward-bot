@@ -145,7 +145,7 @@ Per-video comment processing store:
 
 ```json
 {
-  "videoId": "m0vT-8SA4tM",
+  "videoId": "YOUR_VIDEO_ID",
   "videoName": "Example Video",
   "game": "GTA-VC",
   "meta": {

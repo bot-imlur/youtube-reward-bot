@@ -48,11 +48,11 @@ const GLOBAL_ALLOWED_CHANNELS = process.env.GLOBAL_ALLOWED_CHANNELS
 const GAME_CONFIG = {
   "GTA-VC": {
     enabled: true,
-    fullName: "Grand Theft Auto: Vice City",
-    videoId: "m0vT-8SA4tM",
-    videoName: "GTA Vice City Definitive Edition",
+    fullName: "Grand Theft Auto: Vice City - The NextGen Edition",
+    videoId: "dNiGCcXsEps",
+    videoName: "Simplest Installation Guide - Grand Theft Auto - Vice City NextGen Edition",
     reward: "gta-vc/reward.rar",
-    gameImage: "static/images/gta-vc.webp",
+    gameImage: "static/images/gta-vc.png",
     allowedChannelIds: process.env.GTA_VC_ALLOWED_CHANNELS
       ? process.env.GTA_VC_ALLOWED_CHANNELS.split(',')
       : [] // Must be subset of GLOBAL_ALLOWED_CHANNELS

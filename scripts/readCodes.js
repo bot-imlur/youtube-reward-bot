@@ -63,7 +63,7 @@ function getBoolArg(flag) {
  * @returns {string}
  */
 function formatTime(timestamp) {
-  return new Date(timestamp).toLocaleString();
+  return new Date(timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' });
 }
 
 /**

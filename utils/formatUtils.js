@@ -28,8 +28,10 @@ function formatCodesReport(groupedCodes) {
 
     for (const record of gameCodes) {
       const dateObj = new Date(record.createdAt);
-      // Fallback format if date is invalid, else basic short date
-      const dateStr = dateObj.getTime() ? dateObj.toISOString().replace('T', ' ').substring(0, 16) : 'Unknown';
+      // Fallback format if date is invalid, else local short date-time
+      const dateStr = dateObj.getTime()
+        ? dateObj.toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
+        : 'Unknown';
 
       const usedStr = record.used ? 'YES ' : 'NO  ';
       const userPad = record.userId.padEnd(20, ' ');

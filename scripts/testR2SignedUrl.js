@@ -39,7 +39,7 @@ try {
 
   const parsed = new URL(url);
   const expires = parsed.searchParams.get('expires');
-  const expiresDate = new Date(parseInt(expires) * 1000).toLocaleTimeString();
+  const expiresDate = new Date(parseInt(expires) * 1000).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
 
   console.log('─── URL Breakdown ───────────────────────────────────');
   console.log(`Host    : ${parsed.host}`);

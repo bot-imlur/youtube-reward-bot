@@ -43,7 +43,7 @@ function formatErrorReply(gameFullName, reason) {
 async function sendClaimCodeMessage(client, userId, gameCode, gameFullName, code, expiresAt, channelUrl, videoName) {
   try {
     const user = await client.users.fetch(userId);
-    const expiryTime = new Date(expiresAt).toLocaleTimeString();
+    const expiryTime = new Date(expiresAt).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata' });
 
     const embed = new EmbedBuilder()
       .setColor('#0099ff')

@@ -93,7 +93,7 @@ function parseDuration(value) {
  */
 function formatLog(log) {
   return {
-    Time: new Date(log.timestamp).toLocaleString(),
+    Time: new Date(log.timestamp).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }),
     Level: log.level,
     Event: log.event,
     UserId: log.userId || log.targetUserId || '-',

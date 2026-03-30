@@ -34,30 +34,15 @@ const GLOBAL_ALLOWED_CHANNELS = process.env.GLOBAL_ALLOWED_CHANNELS
 /**
  * Game Configuration
  *
- * Each game defines:
- * - enabled → whether users can claim
- * - fullName → Human-readable game name for messages
- * - videoId → Associated YouTube video ID (used for comment fetching)
- * - videoName → Human-readable video title shown in DM instructions
- * - reward → R2 object key for the game file (used to generate a signed download URL)
- * - gameImage → Path to game image file (shown in reward messages)
- * - allowedChannelIds → List of channels where this game is available (must be subset of GLOBAL_ALLOWED_CHANNELS)
- *                       Empty array = available in all global channels
+ * Loaded from environment-specific files to allow independent dev/prod game entries.
+ * - production  → config/games.production.js
+ * - development → config/games.development.js
+ *
+ * Both files export the same structure. See games.production.js for field docs.
  */
-
-const GAME_CONFIG = {
-  "GTA-VC": {
-    enabled: true,
-    fullName: "Grand Theft Auto: Vice City - The NextGen Edition",
-    videoId: "dNiGCcXsEps",
-    videoName: "Simplest Installation Guide - Grand Theft Auto - Vice City NextGen Edition",
-    reward: "gta-vc/reward.rar",
-    gameImage: "static/images/gta-vc.png",
-    allowedChannelIds: process.env.GTA_VC_ALLOWED_CHANNELS
-      ? process.env.GTA_VC_ALLOWED_CHANNELS.split(',')
-      : [] // Must be subset of GLOBAL_ALLOWED_CHANNELS
-  }
-};
+const GAME_CONFIG = process.env.NODE_ENV === 'production'
+  ? require('./games.production')
+  : require('./games.development');
 
 const DOWNLOAD_EXPIRY_SECONDS = 2 * 60; // 2 minutes (2 min * 60 secs)
 

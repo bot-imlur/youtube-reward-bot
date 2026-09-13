@@ -19,6 +19,17 @@ const GAME_CONFIG = {
     allowedChannelIds: process.env.GTA_VC_ALLOWED_CHANNELS
       ? process.env.GTA_VC_ALLOWED_CHANNELS.split(',')
       : []
+  },
+  "GTA-SA": {
+    enabled: true,
+    fullName: "Grand Theft Auto: San Andreas - The NextGen Edition",
+    videoId: "dUmMyViD000", // TODO: replace with real YouTube video ID
+    videoName: "Simplest Installation Guide - Grand Theft Auto - San Andreas NextGen Edition",
+    reward: "gta-sa/reward.rar",
+    gameImage: "static/images/gta-sa.png",
+    allowedChannelIds: process.env.GTA_SA_ALLOWED_CHANNELS
+      ? process.env.GTA_SA_ALLOWED_CHANNELS.split(',')
+      : []
   }
 };
 

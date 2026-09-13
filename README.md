@@ -310,35 +310,162 @@ npm start
 
 ## Onboarding a New Game
 
-Adding a new game to the bot is entirely configuration-driven. Follow these precise steps:
+Adding a new game is configuration-driven. Each game maps to **one YouTube video** and **one R2 object key**.
 
-**1. Upload the Reward to Cloudflare R2**
-Upload your game download file (e.g., `Spiderman-ZIP.zip`) to your Cloudflare R2 bucket. Save the exact filename, as this will be your `reward` key.
+### Checklist
 
-**2. Publish your YouTube Video**
-Upload the respective YouTube video outlining how to get the game, and grab the 11-character YouTube `videoId` from the URL.
+- [ ] Reward file uploaded to R2 (`<game-code>/reward.rar`)
+- [ ] YouTube video published; `videoId` copied
+- [ ] Thumbnail added under `static/images/` (optional)
+- [ ] Entry added to `config/games.production.js`
+- [ ] Per-game channel env var added to server `.env` (if restricting channels)
+- [ ] Changes deployed; bot restarted
+- [ ] Verified with `/admin-get-games` and `/admin-reward`
 
-**3. Update `config/constants.js`**
-Open `config/constants.js` and add a new block to the `GAME_CONFIG` dictionary. 
-Use a short, uppercase key (e.g., `SPIDERMAN`) representing your game.
-```javascript
-const GAME_CONFIG = {
-  "GTA-VC": { ... },
-  "SPIDERMAN": { 
-    fullName: "Spider-Man Remastered",
-    videoName: "Spider-Man Unlock Guide",
-    videoId: "YOUR_11_CHAR_YOUTUBE_ID",
-    reward: "Spiderman-ZIP.zip", 
-    allowedChannelIds: ["123456789012345678"], // Specific text channels allowed for this game
-    gameImage: "https://your-image-host.com/spiderman.jpg" // Optional thumbnail for DM
-  }
-};
+---
+
+### 1. Upload the reward to Cloudflare R2
+
+**Bucket:** `imlur-games` (see `worker/wrangler.toml`)
+
+Use a folder per game and a consistent object key, e.g. `gta-sa/reward.rar`. That key becomes the `reward` field in config.
+
+| Method | Max size | When to use |
+|---|---|---|
+| **Upload scripts** (recommended) | No practical limit (multipart S3) | Files > 300 MB |
+| Cloudflare dashboard | 300 MB | Small files only |
+| `wrangler r2 object put --remote` | ~315 MB | Quick tests only |
+
+#### One-time setup
+
+1. **R2 Account ID** — copy from the Cloudflare dashboard URL:
+   `https://dash.cloudflare.com/<ACCOUNT_ID>/home`
+   Set as `R2_ACCOUNT_ID` in `.env`. Must match exactly; a typo causes TLS handshake failures on the S3 endpoint.
+
+2. **Upload credentials** — create an **Object Read & Write** API token scoped to `imlur-games` (e.g. `r2-upload`). Set in `.env`:
+   ```env
+   R2_UPLOAD_ACCESS_KEY_ID=
+   R2_UPLOAD_SECRET_ACCESS_KEY=
+   ```
+   Keep the bot's **read-only** token separate (`R2_ACCESS_KEY_ID` / `R2_SECRET_ACCESS_KEY`).
+
+3. **AWS CLI** — required by the upload scripts:
+   ```powershell
+   winget install Amazon.AWSCLI
+   ```
+   On Windows, if `aws` is not on PATH, the scripts auto-detect `C:\Program Files\Amazon\AWSCLIV2\aws.exe`.
+
+#### Upload command
+
+**PowerShell:**
+```powershell
+.\scripts\uploadToR2.ps1 "C:\Games\reward.rar" "gta-sa/reward.rar"
 ```
 
-**4. Deploy and Restart**
-Commit your changes, push to GitHub, and let the CD pipeline restart the bot. (Because the `/claim` command asks for a generic text string, you **do not** need to re-run `deploy-commands.js`). 
+**Verify the upload:**
+```powershell
+& "C:\Program Files\Amazon\AWSCLIV2\aws.exe" s3 ls "s3://imlur-games/gta-sa/" --human-readable `
+  --endpoint-url "https://<R2_ACCOUNT_ID>.r2.cloudflarestorage.com"
+```
 
-Users can immediately start using `/generate game:SPIDERMAN`!
+Or check **R2 → imlur-games** in the Cloudflare dashboard.
+
+> **Note:** Uploading to an existing prefix (e.g. `gta-sa/`) is fine. Uploading to the **same object key** silently overwrites the previous file.
+
+---
+
+### 2. Publish your YouTube video
+
+Upload the unlock/install guide and copy the 11-character `videoId` from the URL:
+
+```
+https://www.youtube.com/watch?v=dNiGCcXsEps
+                              ^^^^^^^^^^^
+```
+
+---
+
+### 3. Add a game thumbnail (optional)
+
+Place an image in the repo, e.g. `static/images/gta-sa.png`. It is attached to reward DMs.
+
+---
+
+### 4. Update production game config
+
+Edit **`config/games.production.js`** (not `config/constants.js`). Use a short uppercase game code as the key:
+
+```javascript
+"GTA-SA": {
+  enabled: true,
+  fullName: "Grand Theft Auto: San Andreas - The NextGen Edition",
+  videoId: "YOUR_11_CHAR_YOUTUBE_ID",
+  videoName: "Simplest Installation Guide - GTA San Andreas NextGen Edition",
+  reward: "gta-sa/reward.rar",
+  gameImage: "static/images/gta-sa.png",
+  allowedChannelIds: process.env.GTA_SA_ALLOWED_CHANNELS
+    ? process.env.GTA_SA_ALLOWED_CHANNELS.split(',')
+    : []
+}
+```
+
+| Field | Description |
+|---|---|
+| `enabled` | Must be `true` for users to claim |
+| `reward` | Exact R2 object key from step 1 |
+| `allowedChannelIds` | Empty `[]` = all globally allowed channels |
+
+If restricting channels, add to the **server** `.env`:
+```env
+GTA_SA_ALLOWED_CHANNELS=123456789012345678
+```
+Per-game channels must be a subset of `GLOBAL_ALLOWED_CHANNELS`.
+
+Mirror test values in `config/games.development.js` if you test locally.
+
+---
+
+### 5. Deploy and restart
+
+Commit, push, and publish a GitHub Release (triggers CD on the Ubuntu server), or on the server:
+
+```bash
+git pull
+docker compose up -d --build
+```
+
+You **do not** need to re-run `deploy-commands.js` — `/generate` and `/claim` accept a free-text `game` string.
+
+---
+
+### 6. Verify
+
+**Admin commands:**
+```
+/admin-get-games game:GTA-SA
+/admin-reward user-id:<YOUR_ID> game:GTA-SA
+```
+
+**Local signed-URL test:**
+```bash
+TEST_OBJECT_KEY=gta-sa/reward.rar node scripts/testR2SignedUrl.js --prod
+```
+Open the URL in `signed-url.txt` — the file should download.
+
+Users can immediately run `/generate game:GTA-SA`.
+
+---
+
+### Onboarding troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| `SSL handshake failure` on S3 upload | Verify `R2_ACCOUNT_ID` matches the dashboard URL exactly |
+| `aws: not recognized` on Windows | Use `uploadToR2.ps1` (auto-detects AWS CLI path) or add `C:\Program Files\Amazon\AWSCLIV2` to PATH |
+| Upload fails on AWS CLI v2.22+ | Scripts set `AWS_REQUEST_CHECKSUM_CALCULATION=when_required` automatically |
+| `wrangler r2 object put` without `--remote` | Upload went to local dev storage only — always pass `--remote` for production |
+| Wrangler upload | Max ~315 MB — use upload scripts for large game files |
+| `/claim` says channel not allowed | Check `GLOBAL_ALLOWED_CHANNELS` and per-game `allowedChannelIds` in `.env` |
 
 ## Command Usage
 
